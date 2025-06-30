@@ -1,7 +1,4 @@
 import React, { useState } from "react";
-import { useYandexWeather } from "../hooks/useYandexWeather";
-import LargeCard from "./LargeCard";
-import SmallCard from "./SmallCard";
 import LightSlider from "./LightSlider";
 import BlindsControlRoom from "./BlindsControlRoom";
 import BlindsControlKitchen from "./BlindsControlKitchen";
@@ -9,58 +6,14 @@ import BlindsControlHoll from "./BlindsControlHoll";
 import LightEffects from "./LightEffects";
 import FloorHeatingWidget from "./FloorHeatingWidget";
 import FloorHeatingWidgetBath from "./FloorHeatingWidgetBath";
-
-type WeatherIcon =
-  | "Shower"
-  | "Clear"
-  | "LightCloud"
-  | "HeavyCloud"
-  | "LightRain"
-  | "HeavyRain"
-  | "Sleet"
-  | "Snow"
-  | "Hail"
-  | "Thunderstorm";
-
-const yandexToIcon = (condition: string): WeatherIcon => {
-  const map: Record<string, WeatherIcon> = {
-    "clear": "Clear",
-    "partly-cloudy": "LightCloud",
-    "cloudy": "HeavyCloud",
-    "overcast": "HeavyCloud",
-    "drizzle": "LightRain",
-    "light-rain": "LightRain",
-    "rain": "Shower",
-    "moderate-rain": "Shower",
-    "heavy-rain": "HeavyRain",
-    "continuous-heavy-rain": "HeavyRain",
-    "showers": "Shower",
-    "wet-snow": "Sleet",
-    "light-snow": "Snow",
-    "snow": "Snow",
-    "snow-showers": "Snow",
-    "hail": "Hail",
-    "thunderstorm": "Thunderstorm",
-    "thunderstorm-with-rain": "Thunderstorm",
-    "thunderstorm-with-hail": "Thunderstorm",
-  };
-  return map[condition] || "Shower";
-};
-
-const getDayTitle = (dateStr: string, idx: number) => {
-  if (idx === 0) return "Сегодня";
-  if (idx === 1) return "Завтра";
-  const days = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
-  const d = new Date(dateStr);
-  return `${days[d.getDay()]}, ${d.getDate()} ${d.toLocaleString("ru", { month: "short" })}`;
-};
+import TrafficWidget from "./TrafficWidget";
+import WeatherTab from "./WeatherTab";
 
 const MainContent: React.FC = () => {
-  const [tab, setTab] = useState<"weather" | "control">("weather");
-  const { weather, loading } = useYandexWeather();
+  const [tab, setTab] = useState<"weather" | "control" | "traffic">("weather");
 
   return (
-    <div className="text-gray-150 p-10 flex-grow w-full">
+    <div className="text-gray-150 p-5 flex-grow w-full">
       {/* Табы по правому краю */}
       <div className="flex justify-end mb-8">
         <div className="flex gap-4">
@@ -86,90 +39,23 @@ const MainContent: React.FC = () => {
           >
             Управление
           </button>
+          <button
+            onClick={() => setTab("traffic")}
+            className={`
+              px-6 py-2 rounded-lg font-medium text-base transition-all duration-150 border-2
+              ${tab === "traffic"
+                ? "bg-blue-700 border-blue-400 shadow-xl text-gray-100"
+                : "bg-[#1a1b2d] border-[#232445] text-gray-350 hover:bg-blue-900 hover:border-blue-500"}
+            `}
+          >
+            Пробки
+          </button>
         </div>
       </div>
 
       {tab === "weather" ? (
-        <>
-          {/* Прогноз на неделю */}
-          <div className="w-full mt-2 mb-10 overflow-x-auto">
-            <div className="flex gap-6 min-w-max px-2">
-              {loading && (
-                <div className="flex justify-center items-center w-full h-32">
-                  Загрузка прогноза...
-                </div>
-              )}
-              {!loading &&
-                weather?.forecasts?.slice(0, 7).map((day: any, idx: number) => (
-                  <div key={day.date} className="flex-shrink-0" style={{ minWidth: 140 }}>
-                    <SmallCard
-                      dayTitle={getDayTitle(day.date, idx)}
-                      img={yandexToIcon(day.parts.day.condition)}
-                      max={day.parts.day.temp_max}
-                      min={day.parts.day.temp_min}
-                      temp="C"
-                    />
-                  </div>
-                ))}
-            </div>
-          </div>
-          {/* Погодные показатели */}
-          <div className="my-10">
-            <h3 className="text-2xl font-bold mb-5">Погодные показатели</h3>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 justify-center">
-              <LargeCard
-                title="Ветер"
-                num={weather?.fact?.wind_speed ?? 0}
-                desc="м/с"
-              >
-                <div className="flex justify-between space-x-5 items-center">
-                  <div className="bg-gray-500 rounded-full w-[30px] h-[30px] flex justify-center items-center">
-                    <i className="fas fa-location-arrow"></i>
-                  </div>
-                  <p className="text-gray-150 text-sm">
-                    {weather?.fact?.wind_dir?.toUpperCase() ?? ""}
-                  </p>
-                </div>
-              </LargeCard>
-
-              <LargeCard
-                title="Влажность"
-                num={weather?.fact?.humidity ?? 0}
-                desc="%"
-              >
-                <div className="self-stretch text-gray-250 text-xs space-y-1">
-                  <div className="flex justify-between space-x-5 items-center px-1">
-                    <p>0</p>
-                    <p>50</p>
-                    <p>100</p>
-                  </div>
-                  <div className="w-full h-2 bg-gray-150 rounded-full overflow-hidden">
-                    <div
-                      className="bg-[#FFEC65] h-2"
-                      style={{
-                        width: `${weather?.fact?.humidity ?? 0}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <p className="text-right">%</p>
-                </div>
-              </LargeCard>
-
-              <LargeCard
-                title="Видимость"
-                num={weather?.fact?.visibility ?? 0}
-                desc=" м"
-              />
-
-              <LargeCard
-                title="Давление"
-                num={weather?.fact?.pressure_mm ?? 0}
-                desc=" мм"
-              />
-            </div>
-          </div>
-        </>
-      ) : (
+        <WeatherTab />
+      ) : tab === "control" ? (
         <>
           {/* Управление умным домом */}
           <div className="my-10">
@@ -193,6 +79,14 @@ const MainContent: React.FC = () => {
             </div>
           </div>
         </>
+      ) : (
+        // TRAFFIC
+        <div className="flex flex-col items-center justify-center my-10">
+          <h3 className="text-2xl font-bold mb-5">Пробки в городе</h3>
+          <div className="w-full">
+            <TrafficWidget />
+          </div>
+        </div>
       )}
     </div>
   );
