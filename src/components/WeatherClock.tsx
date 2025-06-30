@@ -1,12 +1,12 @@
-//WeatherClock.jsx
 import React from "react";
-import { WeatherIconMap } from "./WeatherIconMap"; // путь уточни!
-import { conditionMap } from "./conditionMap"; // путь уточни!
+import { WeatherIconMap } from "./WeatherIconMap"; // путь свой!
+import { conditionMap } from "./conditionMap";     // путь свой!
+import Clock from "./Clock";                       // путь свой!
 
 type HourData = {
-  hour: string; // "0".."23"
+  hour: string;
   temp: number;
-  condition: string; // теперь передаём raw-condition из Яндекса
+  condition: string;
 };
 
 interface WeatherClockProps {
@@ -50,7 +50,6 @@ const WeatherClock: React.FC<WeatherClockProps> = ({ hours }) => {
 
           const isCurrent = Number(h.hour) === new Date().getHours();
 
-          // Получаем название картинки
           const iconKey = conditionMap[h.condition] || "Shower";
           const iconSrc = WeatherIconMap[iconKey] || WeatherIconMap["Shower"];
 
@@ -58,7 +57,7 @@ const WeatherClock: React.FC<WeatherClockProps> = ({ hours }) => {
             <g key={idx}>
               <foreignObject x={x - 22} y={y - 22} width={44} height={44}>
                 <div style={{ opacity: isCurrent ? 1 : 0.7, width: 40 }}>
-                  <img src={iconSrc} alt={h.condition} style={{ width: 40}} />
+                  <img src={iconSrc} alt={h.condition} style={{ width: 40 }} />
                 </div>
               </foreignObject>
               <text
@@ -87,21 +86,12 @@ const WeatherClock: React.FC<WeatherClockProps> = ({ hours }) => {
             </g>
           );
         })}
-        {/* Центр — текущее время */}
+        {/* Центр — всегда актуальное время через компонент Clock */}
         <circle cx={CENTER} cy={CENTER} r={80} fill="#232445" />
-        <text
-          x={CENTER}
-          y={CENTER}
-          textAnchor="middle"
-          alignmentBaseline="middle"
-          fontSize="30"
-          fontWeight={700}
-          fill="#fff"
-        >
-          {`${String(new Date().getHours()).padStart(2, "0")}:${String(
-            new Date().getMinutes()
-          ).padStart(2, "0")}`}
-        </text>
+        <g>
+          {/* x/y="50%" — центр; SVG поддерживает проценты */}
+          <Clock fontSize={38} />
+        </g>
       </svg>
     </div>
   );
