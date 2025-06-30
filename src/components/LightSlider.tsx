@@ -168,12 +168,21 @@ const LightSlider: React.FC<LightSliderProps> = ({
       </div>
 
       <button
-        className="px-4 py-2 rounded bg-blue-700 hover:bg-blue-900 text-gray-150 disabled:opacity-60 mt-2"
-        disabled={loading}
-        onClick={sendLight}
-      >
-        {loading ? "Отправка..." : "Установить параметры"}
-      </button>
+  className={`
+    py-3 px-4 rounded-lg font-medium text-gray-150 text-base
+    transition-all duration-150
+    border-2
+    bg-[#1a1b2d] border-[#232445]
+    hover:bg-blue-900 hover:border-blue-500
+    disabled:opacity-60
+    mt-2
+  `}
+  disabled={loading}
+  onClick={sendLight}
+>
+  {loading ? "..." : "Установить параметры"}
+</button>
+
     </div>
   );
 };

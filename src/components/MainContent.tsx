@@ -3,8 +3,12 @@ import { useYandexWeather } from "../hooks/useYandexWeather";
 import LargeCard from "./LargeCard";
 import SmallCard from "./SmallCard";
 import LightSlider from "./LightSlider";
-import BlindsControl from "./BlindsControl";
-
+import BlindsControlRoom from "./BlindsControlRoom";
+import BlindsControlKitchen from "./BlindsControlKitchen";
+import BlindsControlHoll from "./BlindsControlHoll";
+import LightEffects from "./LightEffects";
+import FloorHeatingWidget from "./FloorHeatingWidget";
+import FloorHeatingWidgetBath from "./FloorHeatingWidgetBath";
 type WeatherIcon =
   | "Shower"
   | "Clear"
@@ -93,7 +97,26 @@ const MainContent = () => {
         <h3 className="text-2xl font-bold mb-5">Управление умным домом</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 justify-center">
           <LightSlider />
-          <BlindsControl />
+          <LightEffects />
+          
+        </div>
+      </div>
+       {/* Домашние виджеты */}
+      <div className="my-10">
+       
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 justify-center">
+       
+          <BlindsControlKitchen />
+          <BlindsControlHoll />
+          <BlindsControlRoom />
+        </div>
+      </div>
+      <div className="my-10">
+       
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 justify-center">
+       
+        <FloorHeatingWidget />
+         <FloorHeatingWidgetBath />
         </div>
       </div>
 
