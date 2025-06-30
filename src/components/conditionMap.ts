@@ -1,0 +1,22 @@
+// conditionMap.ts
+export const conditionMap: Record<string, string> = {
+  "clear": "Clear",
+  "partly-cloudy": "LightCloud",
+  "cloudy": "HeavyCloud",
+  "overcast": "HeavyCloud",
+  "drizzle": "LightRain",
+  "light-rain": "LightRain",
+  "rain": "Shower",
+  "moderate-rain": "Shower",
+  "heavy-rain": "HeavyRain",
+  "continuous-heavy-rain": "HeavyRain",
+  "showers": "Shower",
+  "wet-snow": "Sleet",
+  "light-snow": "Snow",
+  "snow": "Snow",
+  "snow-showers": "Snow",
+  "hail": "Hail",
+  "thunderstorm": "Thunderstorm",
+  "thunderstorm-with-rain": "Thunderstorm",
+  "thunderstorm-with-hail": "Thunderstorm",
+};

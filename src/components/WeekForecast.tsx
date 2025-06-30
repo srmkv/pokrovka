@@ -1,44 +1,26 @@
 import React from "react";
+import { WeatherIconMap } from "./WeatherIconMap"; // проверь путь!
+import { conditionMap } from "./conditionMap";     // проверь путь!
 
 interface WeekForecastProps {
   forecasts: any[];
 }
 
-const yandexToIcon = (condition: string) => {
-  const map: Record<string, string> = {
-    "clear": "Clear",
-    "partly-cloudy": "LightCloud",
-    "cloudy": "HeavyCloud",
-    "overcast": "HeavyCloud",
-    "drizzle": "LightRain",
-    "light-rain": "LightRain",
-    "rain": "Shower",
-    "moderate-rain": "Shower",
-    "heavy-rain": "HeavyRain",
-    "continuous-heavy-rain": "HeavyRain",
-    "showers": "Shower",
-    "wet-snow": "Sleet",
-    "light-snow": "Snow",
-    "snow": "Snow",
-    "snow-showers": "Snow",
-    "hail": "Hail",
-    "thunderstorm": "Thunderstorm",
-    "thunderstorm-with-rain": "Thunderstorm",
-    "thunderstorm-with-hail": "Thunderstorm",
-  };
-  return map[condition] || "Shower";
-};
-
-const getDayOfWeek = (date: string) => {
+const getDayOfWeek = (date: string, idx: number) => {
+  if (idx === 0) return "Сегодня";
   const days = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
   const d = new Date(date);
   return days[d.getDay()];
 };
 
+const getIconSrc = (condition: string) => {
+  const iconKey = conditionMap[condition] || "Shower";
+  return WeatherIconMap[iconKey] || WeatherIconMap["Shower"];
+};
+
 const WeekForecast: React.FC<WeekForecastProps> = ({ forecasts }) => (
   <div className="bg-darkblue rounded-xl p-5 mt-8">
     <h3 className="text-xl font-bold text-gray-150 mb-3">Прогноз на неделю</h3>
-    {/* Важно: flex + overflow-x-auto */}
     <div className="flex gap-4 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
       {forecasts.map((day, i) => (
         <div
@@ -47,10 +29,10 @@ const WeekForecast: React.FC<WeekForecastProps> = ({ forecasts }) => (
           style={{ width: 110 }}
         >
           <span className="font-semibold text-gray-150">
-            {i === 0 ? "Сегодня" : getDayOfWeek(day.date)}
+            {getDayOfWeek(day.date, i)}
           </span>
           <img
-            src={`/images/${yandexToIcon(day.parts.day.condition)}.png`}
+            src={getIconSrc(day.parts.day.condition)}
             alt={day.parts.day.condition}
             className="max-h-10 my-2"
           />
