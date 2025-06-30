@@ -22,3 +22,6 @@
 .custom-scroll::-webkit-scrollbar-thumb:hover {
   background: #444466;
 }
+.addr{
+	font-size: 12px;
+}

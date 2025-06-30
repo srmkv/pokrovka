@@ -1,6 +1,6 @@
 //WeatherClock.jsx
 import React from "react";
-import { WeatherIconMap } from "./WeatherIcons"; // путь уточни!
+import { WeatherIconMap } from "./WeatherIconMap"; // путь уточни!
 import { conditionMap } from "./conditionMap"; // путь уточни!
 
 type HourData = {

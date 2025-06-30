@@ -20,8 +20,7 @@ const SideBar = () => {
     weather?.geo_object?.province?.name ||
     weather?.geo_object?.country?.name ||
     "—";
-  const street =
-    weather?.geo_object?.street?.name ?? "";
+  
   const date = new Date(weather?.now * 1000 || Date.now());
   const dateString = date.toLocaleDateString("ru-RU", {
     weekday: "short",
@@ -50,23 +49,34 @@ const SideBar = () => {
             wind_speed={weather?.fact?.wind_speed}
             wind_dir={weather?.fact?.wind_dir}
           />
-          <div className="flex flex-col items-center justify-between flex-grow pt-4 pb-3">
-            <h1 className="text-gray-150 font-medium text-[110px] md:text-[144px] leading-none transition-all duration-200">
-              {loading ? "--" : temp}
-              <span className="text-4xl md:text-5xl text-gray-250 align-top">&deg;C</span>
-            </h1>
-            <h3 className="font-semibold text-4xl text-gray-250 mb-2">
-              {loading ? "Загрузка..." : conditionRus}
-            </h3>
-            <div className="flex flex-col items-center text-center text-gray-350 text-lg space-y-2">
-              <p>Сегодня &bull; {dateString}</p>
-              <p>
-                <i className="fas fa-map-marker-alt"></i>{" "}
-                {street ? `${street}, ` : ""}
-                {city}
-              </p>
-            </div>
-          </div>
+         <div className="flex flex-col items-center justify-between flex-grow pt-4 pb-3">
+  <h1 className="text-gray-150 font-medium text-[110px] md:text-[144px] leading-none transition-all duration-200">
+    {loading ? "--" : temp}
+    <span className="text-4xl md:text-5xl text-gray-250 align-top">&deg;C</span>
+  </h1>
+  {/* ОЩУЩАЕТСЯ КАК */}
+  {weather?.fact?.feels_like !== undefined && (
+    <div className="text-gray-350 text-2xl mt-[-18px] mb-2 flex items-center gap-2">
+      
+      <span>Ощущается как</span>
+      <span className="font-semibold ml-1">{weather.fact.feels_like}&deg;C</span>
+    </div>
+  )}
+  <h3 className="font-semibold text-4xl text-gray-250 mb-2">
+    {loading ? "Загрузка..." : conditionRus}
+  </h3>
+  <div className="flex flex-col items-center text-center text-gray-350 text-lg space-y-2">
+    <p>Сегодня &bull; {dateString}</p>
+    <span className="addr">
+      <i className="fas fa-map-marker-alt"></i>{" "}
+      Б.Покровская д. 80, 1й подьезд, 7й этаж
+    </span>
+    <span className="addr">
+      Почтовый индекс: 606-300
+    </span>
+  </div>
+</div>
+
         </>
       )}
     </div>
