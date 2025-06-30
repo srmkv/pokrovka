@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useYandexWeather } from "../hooks/useYandexWeather";
 import LargeCard from "./LargeCard";
 import SmallCard from "./SmallCard";
@@ -9,6 +9,7 @@ import BlindsControlHoll from "./BlindsControlHoll";
 import LightEffects from "./LightEffects";
 import FloorHeatingWidget from "./FloorHeatingWidget";
 import FloorHeatingWidgetBath from "./FloorHeatingWidgetBath";
+
 type WeatherIcon =
   | "Shower"
   | "Clear"
@@ -54,127 +55,145 @@ const getDayTitle = (dateStr: string, idx: number) => {
   return `${days[d.getDay()]}, ${d.getDate()} ${d.toLocaleString("ru", { month: "short" })}`;
 };
 
-const MainContent = () => {
+const MainContent: React.FC = () => {
+  const [tab, setTab] = useState<"weather" | "control">("weather");
   const { weather, loading } = useYandexWeather();
 
   return (
-    <div className="text-gray-150 p-10 flex-grow">
-      {/* Кнопки C/F */}
-      <div className="space-x-3 text-right">
-        <button className="bg-gray-150 rounded-full w-10 h-10 text-darkblue font-bold text-xl">
-          &deg;C
-        </button>
-        <button className="bg-[#585676] rounded-full w-10 h-10 text-gray-150 font-bold text-xl">
-          &deg;F
-        </button>
-      </div>
-
-      {/* Прогноз на неделю — горизонтальный скролл */}
-      <div className="w-full mt-5 mb-10 overflow-x-auto">
-        <div className="flex gap-6 min-w-max px-2">
-          {loading && (
-            <div className="flex justify-center items-center w-full h-32">
-              Загрузка прогноза...
-            </div>
-          )}
-          {!loading &&
-            weather?.forecasts?.slice(0, 7).map((day: any, idx: number) => (
-              <div key={day.date} className="flex-shrink-0" style={{ minWidth: 140 }}>
-                <SmallCard
-                  dayTitle={getDayTitle(day.date, idx)}
-                  img={yandexToIcon(day.parts.day.condition)}
-                  max={day.parts.day.temp_max}
-                  min={day.parts.day.temp_min}
-                  temp="C"
-                />
-              </div>
-            ))}
-        </div>
-      </div>
-
-      {/* Домашние виджеты */}
-      <div className="my-10">
-        <h3 className="text-2xl font-bold mb-5">Управление умным домом</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 justify-center">
-          <LightSlider />
-          <LightEffects />
-          
-        </div>
-      </div>
-       {/* Домашние виджеты */}
-      <div className="my-10">
-       
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 justify-center">
-       
-          <BlindsControlKitchen />
-          <BlindsControlHoll />
-          <BlindsControlRoom />
-        </div>
-      </div>
-      <div className="my-10">
-       
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 justify-center">
-       
-        <FloorHeatingWidget />
-         <FloorHeatingWidgetBath />
-        </div>
-      </div>
-
-      {/* Сегодняшние погодные показатели */}
-      <div className="my-10">
-        <h3 className="text-2xl font-bold mb-5">Погодные показатели</h3>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 justify-center">
-          <LargeCard
-            title="Ветер"
-            num={weather?.fact?.wind_speed ?? 0}
-            desc="м/с"
+    <div className="text-gray-150 p-10 flex-grow w-full">
+      {/* Табы по правому краю */}
+      <div className="flex justify-end mb-8">
+        <div className="flex gap-4">
+          <button
+            onClick={() => setTab("weather")}
+            className={`
+              px-6 py-2 rounded-lg font-medium text-base transition-all duration-150 border-2
+              ${tab === "weather"
+                ? "bg-blue-700 border-blue-400 shadow-xl text-gray-100"
+                : "bg-[#1a1b2d] border-[#232445] text-gray-350 hover:bg-blue-900 hover:border-blue-500"}
+            `}
           >
-            <div className="flex justify-between space-x-5 items-center">
-              <div className="bg-gray-500 rounded-full w-[30px] h-[30px] flex justify-center items-center">
-                <i className="fas fa-location-arrow"></i>
-              </div>
-              <p className="text-gray-150 text-sm">
-                {weather?.fact?.wind_dir?.toUpperCase() ?? ""}
-              </p>
-            </div>
-          </LargeCard>
-
-          <LargeCard
-            title="Влажность"
-            num={weather?.fact?.humidity ?? 0}
-            desc="%"
+            Погода
+          </button>
+          <button
+            onClick={() => setTab("control")}
+            className={`
+              px-6 py-2 rounded-lg font-medium text-base transition-all duration-150 border-2
+              ${tab === "control"
+                ? "bg-blue-700 border-blue-400 shadow-xl text-gray-100"
+                : "bg-[#1a1b2d] border-[#232445] text-gray-350 hover:bg-blue-900 hover:border-blue-500"}
+            `}
           >
-            <div className="self-stretch text-gray-250 text-xs space-y-1">
-              <div className="flex justify-between space-x-5 items-center px-1">
-                <p>0</p>
-                <p>50</p>
-                <p>100</p>
-              </div>
-              <div className="w-full h-2 bg-gray-150 rounded-full overflow-hidden">
-                <div
-                  className="bg-[#FFEC65] h-2"
-                  style={{
-                    width: `${weather?.fact?.humidity ?? 0}%`,
-                  }}
-                ></div>
-              </div>
-              <p className="text-right">%</p>
-            </div>
-          </LargeCard>
-
-          <LargeCard
-            title="Видимость"
-            num={weather?.fact?.visibility ?? 0}
-            desc=" м"
-          />
-
-          <LargeCard
-            title="Давление"
-            num={weather?.fact?.pressure_mm ?? 0}
-            desc=" мм"
-          />
+            Управление
+          </button>
         </div>
       </div>
+
+      {tab === "weather" ? (
+        <>
+          {/* Прогноз на неделю */}
+          <div className="w-full mt-2 mb-10 overflow-x-auto">
+            <div className="flex gap-6 min-w-max px-2">
+              {loading && (
+                <div className="flex justify-center items-center w-full h-32">
+                  Загрузка прогноза...
+                </div>
+              )}
+              {!loading &&
+                weather?.forecasts?.slice(0, 7).map((day: any, idx: number) => (
+                  <div key={day.date} className="flex-shrink-0" style={{ minWidth: 140 }}>
+                    <SmallCard
+                      dayTitle={getDayTitle(day.date, idx)}
+                      img={yandexToIcon(day.parts.day.condition)}
+                      max={day.parts.day.temp_max}
+                      min={day.parts.day.temp_min}
+                      temp="C"
+                    />
+                  </div>
+                ))}
+            </div>
+          </div>
+          {/* Погодные показатели */}
+          <div className="my-10">
+            <h3 className="text-2xl font-bold mb-5">Погодные показатели</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 justify-center">
+              <LargeCard
+                title="Ветер"
+                num={weather?.fact?.wind_speed ?? 0}
+                desc="м/с"
+              >
+                <div className="flex justify-between space-x-5 items-center">
+                  <div className="bg-gray-500 rounded-full w-[30px] h-[30px] flex justify-center items-center">
+                    <i className="fas fa-location-arrow"></i>
+                  </div>
+                  <p className="text-gray-150 text-sm">
+                    {weather?.fact?.wind_dir?.toUpperCase() ?? ""}
+                  </p>
+                </div>
+              </LargeCard>
+
+              <LargeCard
+                title="Влажность"
+                num={weather?.fact?.humidity ?? 0}
+                desc="%"
+              >
+                <div className="self-stretch text-gray-250 text-xs space-y-1">
+                  <div className="flex justify-between space-x-5 items-center px-1">
+                    <p>0</p>
+                    <p>50</p>
+                    <p>100</p>
+                  </div>
+                  <div className="w-full h-2 bg-gray-150 rounded-full overflow-hidden">
+                    <div
+                      className="bg-[#FFEC65] h-2"
+                      style={{
+                        width: `${weather?.fact?.humidity ?? 0}%`,
+                      }}
+                    ></div>
+                  </div>
+                  <p className="text-right">%</p>
+                </div>
+              </LargeCard>
+
+              <LargeCard
+                title="Видимость"
+                num={weather?.fact?.visibility ?? 0}
+                desc=" м"
+              />
+
+              <LargeCard
+                title="Давление"
+                num={weather?.fact?.pressure_mm ?? 0}
+                desc=" мм"
+              />
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Управление умным домом */}
+          <div className="my-10">
+            <h3 className="text-2xl font-bold mb-5">Управление умным домом</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 justify-center">
+              <LightSlider />
+              <LightEffects />
+            </div>
+          </div>
+          <div className="my-10">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 justify-center">
+              <BlindsControlKitchen />
+              <BlindsControlHoll />
+              <BlindsControlRoom />
+            </div>
+          </div>
+          <div className="my-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 justify-center">
+              <FloorHeatingWidget />
+              <FloorHeatingWidgetBath />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

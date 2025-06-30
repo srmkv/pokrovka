@@ -93,17 +93,7 @@ const conditionRus = yandexConditionRu[conditionRaw] || "—";
         <SearchLocation onClose={() => setIsOpen(false)} />
       ) : (
         <>
-          <div className="relative flex justify-between mb-10">
-            <button
-              className="z-10 px-4 py-2 bg-[#6E707A] hover:bg-[#6E707A]/70 text-gray-150 rounded shadow-lg"
-              onClick={() => setIsOpen(true)}
-            >
-              Search for places
-            </button>
-            <button className="z-10 px-4 py-2 bg-[#6E707A] hover:bg-[#6E707A]/70 text-gray-150 rounded-full shadow-lg">
-              <i className="fas fa-map-marker-alt"></i>
-            </button>
-          </div>
+          
 
           <div className="relative -mx-24 flex justify-center items-center max-h-40 mb-2">
             <img

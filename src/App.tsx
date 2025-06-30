@@ -1,6 +1,6 @@
 import SideBar from "./components/SideBar";
 import MainContent from "./components/MainContent";
-
+import NotificationCenter from "./components/NotificationCenter";
 const App = () => {
   return (
     <div className="flex w-full h-screen">
@@ -11,6 +11,7 @@ const App = () => {
       {/* MainContent только с вертикальным скроллом и кастомным скроллом */}
       <main className="flex-1 h-screen overflow-y-auto bg-[#181825] custom-scroll">
         <MainContent />
+        <NotificationCenter />
       </main>
     </div>
   );
