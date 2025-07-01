@@ -1,0 +1,29 @@
+{
+  "leakSensor": "dry",
+  "lastLeak": null,
+  "washingMachineSensor": "leak",
+  "lastLeakWashing": "2025-07-01T13:30:50.941Z",
+  "dishwasherSensor": "dry",
+  "lastLeakDishwasher": null,
+  "kitchenSensor": "dry",
+  "lastLeakKitchen": null,
+  "blinds": {
+    "kitchen": "open",
+    "room": "open",
+    "holl": "half"
+  },
+  "light": {
+    "brightness": 80,
+    "effect": "off"
+  },
+  "floor": {
+    "living": {
+      "on": true,
+      "temp": 26
+    },
+    "bath": {
+      "on": false,
+      "temp": 24
+    }
+  }
+}

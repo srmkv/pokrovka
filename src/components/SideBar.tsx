@@ -6,6 +6,8 @@ import WeatherFactIndicators from "./Weather/WeatherFactIndicators";
 import { conditionMap } from "./Weather/conditionMap";
 import { yandexConditionRu } from "./Weather/yandexConditionRu"; // Можно вынести в отдельный файл
 
+
+
 const SideBar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { weather, loading } = useYandexWeather();
@@ -62,7 +64,7 @@ const SideBar = () => {
       <span className="font-semibold ml-1">{weather.fact.feels_like}&deg;C</span>
     </div>
   )}
-  <h3 className="font-semibold text-4xl text-gray-250 mb-2">
+  <h3 className="font-semibold text-2xl text-gray-250 mb-2">
     {loading ? "Загрузка..." : conditionRus}
   </h3>
   <div className="flex flex-col items-center text-center text-gray-350 text-lg space-y-2">
@@ -75,6 +77,7 @@ const SideBar = () => {
       Почтовый индекс: 606-300
     </span>
   </div>
+
 </div>
 
         </>
