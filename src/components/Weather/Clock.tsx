@@ -1,5 +1,5 @@
 // src/components/Clock.tsx
-import { useNow } from "../hooks/useNow";
+import { useNow } from "../../hooks/useNow";
 
 const Clock: React.FC<{ fontSize?: number }> = ({ fontSize = 30 }) => {
   const now = useNow(1000); // обновление каждую секунду

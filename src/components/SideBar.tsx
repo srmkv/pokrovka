@@ -1,10 +1,10 @@
 import { useState } from "react";
 import SearchLocation from "./SearchLocation";
 import { useYandexWeather } from "../hooks/useYandexWeather";
-import WeatherIcon from "./WeatherIcon";
-import WeatherFactIndicators from "./WeatherFactIndicators";
-import { conditionMap } from "./conditionMap";
-import { yandexConditionRu } from "./yandexConditionRu"; // Можно вынести в отдельный файл
+import WeatherIcon from "./Weather/WeatherIcon";
+import WeatherFactIndicators from "./Weather/WeatherFactIndicators";
+import { conditionMap } from "./Weather/conditionMap";
+import { yandexConditionRu } from "./Weather/yandexConditionRu"; // Можно вынести в отдельный файл
 
 const SideBar = () => {
   const [isOpen, setIsOpen] = useState(false);

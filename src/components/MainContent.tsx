@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import LightSlider from "./LightSlider";
-import BlindsControlRoom from "./BlindsControlRoom";
-import BlindsControlKitchen from "./BlindsControlKitchen";
-import BlindsControlHoll from "./BlindsControlHoll";
-import LightEffects from "./LightEffects";
-import FloorHeatingWidget from "./FloorHeatingWidget";
-import FloorHeatingWidgetBath from "./FloorHeatingWidgetBath";
+import LightSlider from "./Light/LightSlider";
+import BlindsControlRoom from "./Blinds/BlindsControlRoom";
+import BlindsControlKitchen from "./Blinds/BlindsControlKitchen";
+import BlindsControlHoll from "./Blinds/BlindsControlHoll";
+import LightEffects from "./Light/LightEffects";
+import FloorHeatingWidget from "./Floor/FloorHeatingWidget";
+import FloorHeatingWidgetBath from "./Floor/FloorHeatingWidgetBath";
 import TrafficWidget from "./TrafficWidget";
-import WeatherTab from "./WeatherTab";
+import WeatherTab from "./Weather/WeatherTab";
 
 const MainContent: React.FC = () => {
   const [tab, setTab] = useState<"weather" | "control" | "traffic">("weather");

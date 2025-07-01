@@ -1,11 +1,11 @@
 // WeatherTab.tsx
 import React from "react";
-import { useYandexWeather } from "../hooks/useYandexWeather";
-import LargeCard from "./LargeCard";
-import SmallCard from "./SmallCard";
+import { useYandexWeather } from "../../hooks/useYandexWeather";
+import LargeCard from "../LargeCard";
+import SmallCard from "../SmallCard";
 import WeatherClock from "./WeatherClock";
 import { WeatherIconMap } from "./WeatherIconMap"; // путь свой!
-import { conditionMap } from "../components/conditionMap"; // путь свой!
+import { conditionMap } from "./conditionMap"; // путь свой!
 
 const getDayTitle = (dateStr: string, idx: number) => {
   if (idx === 0) return "Сегодня";
