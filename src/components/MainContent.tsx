@@ -8,7 +8,9 @@ import FloorHeatingWidget from "./Floor/FloorHeatingWidget";
 import FloorHeatingWidgetBath from "./Floor/FloorHeatingWidgetBath";
 import TrafficWidget from "./TrafficWidget";
 import WeatherTab from "./Weather/WeatherTab";
-
+import LeakSensorBathroom from "../components/Water/LeakSensorBathroom";
+import WashingMachineSensor from "../components/Water/WashingMachineSensor";
+import DishwasherSensor  from "../components/Water/DishwasherSensor";
 const MainContent: React.FC = () => {
   const [tab, setTab] = useState<"weather" | "control" | "traffic">("weather");
 
@@ -76,6 +78,14 @@ const MainContent: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 justify-center">
               <FloorHeatingWidget />
               <FloorHeatingWidgetBath />
+              
+            </div>
+          </div>
+           <div className="my-10">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 justify-center">
+              <LeakSensorBathroom />
+              <WashingMachineSensor />
+              <DishwasherSensor />
             </div>
           </div>
         </>
