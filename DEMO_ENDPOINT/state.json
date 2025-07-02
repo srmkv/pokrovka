@@ -8,9 +8,9 @@
   "kitchenSensor": "dry",
   "lastLeakKitchen": null,
   "blinds": {
-    "kitchen": "open",
-    "room": "open",
-    "holl": "half"
+    "kitchen": 0,
+    "room": 0,
+    "holl": 0
   },
   "light": {
     "brightness": 80,
@@ -18,12 +18,12 @@
   },
   "floor": {
     "living": {
-      "on": true,
-      "temp": 26
+      "on": false,
+      "temp": 32
     },
     "bath": {
       "on": false,
-      "temp": 24
+      "temp": 28
     }
   }
 }

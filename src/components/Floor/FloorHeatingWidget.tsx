@@ -1,9 +1,11 @@
 import React, { useState } from "react";
+import { useFloorHeating } from "../../hooks/useFloorHeating";
 
 const MIN_TEMP = 15;
 const MAX_TEMP = 35;
 
 function getTempGradient(temp: number) {
+  // ... (градиент из твоей версии, не изменился)
   const clamp = (v: number, min: number, max: number) =>
     Math.max(min, Math.min(max, v));
   const t = clamp((temp - MIN_TEMP) / (MAX_TEMP - MIN_TEMP), 0, 1);
@@ -24,53 +26,15 @@ function getTempGradient(temp: number) {
 }
 
 const FloorHeatingWidget: React.FC = () => {
-  // для примера: текущая температура пола
-  const [currentTemp, setCurrentTemp] = useState<number>(23.5);
+  const { on, temp, currentTemp, loading, setTemp, setOn } = useFloorHeating("living");
+  const [draft, setDraft] = useState<number>(temp);
 
-  // текущий установленный сервером setpoint
-  const [setpoint, setSetpoint] = useState<number>(25);
+  // Обновляем draft при изменении temp с сервера
+  React.useEffect(() => {
+    setDraft(temp);
+  }, [temp]);
 
-  // локальное значение для ползунка (draft)
-  const [draft, setDraft] = useState<number>(25);
-
-  const [on, setOn] = useState<boolean>(true);
-  const [loading, setLoading] = useState<boolean>(false);
-
-  // Отправка на сервер
-  const sendFloorCommand = async (payload: { command: string; value: any }) => {
-    setLoading(true);
-    try {
-      await fetch("/api/home", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    } catch {
-      alert("Ошибка отправки команды");
-    }
-    setTimeout(() => setLoading(false), 500);
-  };
-
-  // изменение draft при движении ползунка
-  const handleDraftChange = (val: number) => {
-    setDraft(val);
-  };
-
-  // применение draft -> setpoint
-  const handleApply = () => {
-    setSetpoint(draft);
-    sendFloorCommand({ command: "floor_setpoint", value: draft });
-  };
-
-  const handleToggle = () => {
-    setOn((prev) => {
-      sendFloorCommand({ command: "floor_power", value: !prev });
-      return !prev;
-    });
-  };
-
-  // есть ли несохраненные изменения
-  const changed = draft !== setpoint;
+  const changed = draft !== temp;
 
   return (
     <div className="bg-[#22243c] rounded-xl p-6 flex flex-col items-center mb-8 w-full">
@@ -105,11 +69,9 @@ const FloorHeatingWidget: React.FC = () => {
           step={0.5}
           value={draft}
           disabled={loading}
-          onChange={(e) => handleDraftChange(Number(e.target.value))}
+          onChange={e => setDraft(Number(e.target.value))}
           className="w-full accent-orange-400"
-          style={{
-            accentColor: "#f7ad46",
-          }}
+          style={{ accentColor: "#f7ad46" }}
         />
         <div className="flex justify-between w-full text-xs text-gray-350 mt-1">
           <span>{MIN_TEMP}°</span>
@@ -126,7 +88,7 @@ const FloorHeatingWidget: React.FC = () => {
             className={`mt-4 px-6 py-2 rounded-lg text-white font-medium transition-all
               bg-gradient-to-r from-orange-400 to-amber-600 shadow-lg hover:scale-105 active:scale-95`}
             style={{ minWidth: 140 }}
-            onClick={handleApply}
+            onClick={() => setTemp(draft)}
             disabled={loading}
           >
             {loading ? "Применяем..." : "Применить"}
@@ -140,7 +102,7 @@ const FloorHeatingWidget: React.FC = () => {
             ? "bg-gradient-to-r from-orange-400 to-amber-600 shadow-lg"
             : "bg-gray-600"
           }`}
-        onClick={handleToggle}
+        onClick={() => setOn(!on)}
         disabled={loading}
       >
         {on ? "Выключить подогрев" : "Включить подогрев"}
