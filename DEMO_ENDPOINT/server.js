@@ -2,21 +2,37 @@ const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
+const fetch = require("node-fetch"); // npm install node-fetch@2
 const app = express();
 const PORT = 3010;
 
-// Путь к json-файлу состояния
+// --- Настройки Arduino ---
+const ARDUINO_IP = "192.168.0.115"; // IP твоей Arduino
+const ARDUINO_PORT = 80;
+
+// --- Вспомогательная функция для отправки команд на Arduino ---
+async function sendToArduino(cmd) {
+  try {
+    const url = `http://${ARDUINO_IP}:${ARDUINO_PORT}/${cmd}`;
+    const resp = await fetch(url, { timeout: 1000 });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    return await resp.text();
+  } catch (e) {
+    console.error("Ошибка связи с Arduino:", e.message);
+    return null;
+  }
+}
+
+// --- Путь к json-файлу состояния ---
 const STATE_PATH = path.join(__dirname, "state.json");
 
-// --- Default in-memory state ---
+// --- Стартовое состояние ---
 let state = {
   leakSensor: "dry", lastLeak: null,
   washingMachineSensor: "leak", lastLeakWashing: null,
   dishwasherSensor: "dry", lastLeakDishwasher: null,
   kitchenSensor: "dry", lastLeakKitchen: null,
-  blinds: {
-    kitchen: "closed", room: "open", holl: "half"
-  },
+  blinds: { kitchen: 0, room: 0, holl: 0 },
   light: { brightness: 80, effect: "off" },
   floor: {
     living: { on: true, temp: 26 },
@@ -65,7 +81,7 @@ function updateLeakTimes() {
 app.use(cors());
 app.use(express.json());
 
-// --- Load state at startup ---
+// --- Загрузка состояния при запуске ---
 loadState();
 
 // --- Главный endpoint: всё разом ---
@@ -90,25 +106,17 @@ app.get("/api/home", (req, res) => {
     if (!["dry", "leak", "unknown"].includes(status)) return res.status(400).json({ error: "Bad status" });
     state[key] = status;
     updateLeakTimes();
-    saveState(); // --- Сохраняем!
+    saveState();
     res.json({ [key]: state[key], [lastKey]: state[lastKey] });
   });
 });
 
 // --- Жалюзи ---
-state.blinds = {
-  kitchen: 0,   // 0 — open, 100 — closed, 50 — half
-  room: 0,
-  holl: 0
-};
-
-// ... endpoint для получения позиции жалюзи
 ["kitchen", "room", "holl"].forEach(zone => {
   app.get(`/api/blinds/${zone}`, (req, res) => {
-    res.json({ position: state.blinds[zone] }); // now number
+    res.json({ position: state.blinds[zone] });
   });
   app.post(`/api/blinds/${zone}`, (req, res) => {
-    // ожидаем { position: number }
     let { position } = req.body;
     if (typeof position !== "number" || position < 0 || position > 100)
       return res.status(400).json({ error: "Bad position" });
@@ -117,27 +125,51 @@ state.blinds = {
   });
 });
 
-// --- Свет ---
+// --- Свет (яркость) ---
 app.get("/api/light/slider", (req, res) => {
   res.json({ brightness: state.light.brightness });
 });
-app.post("/api/light/slider", (req, res) => {
+
+app.post("/api/light/slider", async (req, res) => {
   const { brightness } = req.body;
   if (typeof brightness !== "number" || brightness < 0 || brightness > 100)
     return res.status(400).json({ error: "Bad brightness" });
   state.light.brightness = brightness;
   saveState();
+  // Если реализуешь парсер яркости на Arduino, раскомментируй:
+  // await sendToArduino(`slider?val=${brightness}`);
   res.json({ brightness: state.light.brightness });
 });
+
+// --- Свет (эффекты, интеграция с Arduino) ---
+const EFFECT_MAP = {
+  off: "off",             // Выключить
+  on: "on",               // Включить
+  fire: "fire",           // Огонь
+  firebounce: "firebounce", // Туда-обратно
+  default: "default",     // Эффект по умолчанию
+  fade: "fade",           // Затухание
+  relay: "relay"          // Реле
+};
+
 app.get("/api/light/effects", (req, res) => {
   res.json({ effect: state.light.effect });
 });
-app.post("/api/light/effects", (req, res) => {
+
+app.post("/api/light/effects", async (req, res) => {
   const { effect } = req.body;
-  if (!["off", "rainbow", "fire"].includes(effect))
+  if (!(effect in EFFECT_MAP))
     return res.status(400).json({ error: "Bad effect" });
+
   state.light.effect = effect;
   saveState();
+
+  // Отправляем команду на Arduino
+  const arduinoResp = await sendToArduino(EFFECT_MAP[effect]);
+  if (arduinoResp === null) {
+    return res.status(502).json({ error: "Не удалось связаться с Arduino" });
+  }
+
   res.json({ effect: state.light.effect });
 });
 
@@ -156,6 +188,7 @@ app.post("/api/light/effects", (req, res) => {
   });
 });
 
+// --- Старт сервера ---
 app.listen(PORT, () => {
   console.log(`API started on http://localhost:${PORT}`);
 });
