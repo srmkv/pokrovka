@@ -125,6 +125,7 @@ app.get("/api/home", (req, res) => {
   });
 });
 
+
 // --- Свет (яркость) ---
 app.get("/api/light/slider", (req, res) => {
   res.json({ brightness: state.light.brightness });
@@ -136,11 +137,30 @@ app.post("/api/light/slider", async (req, res) => {
     return res.status(400).json({ error: "Bad brightness" });
   state.light.brightness = brightness;
   saveState();
-  // Если реализуешь парсер яркости на Arduino, раскомментируй:
-  // await sendToArduino(`slider?val=${brightness}`);
+  const arduinoResp = await sendToArduino(`brightness?val=${brightness}`);
+  if (arduinoResp === null) {
+    return res.status(502).json({ error: "Не удалось связаться с Arduino" });
+  }
   res.json({ brightness: state.light.brightness });
 });
 
+// --- Свет (цвет) ---
+app.post("/api/light/color", async (req, res) => {
+  const { r, g, b } = req.body;
+  if (
+    typeof r !== "number" || r < 0 || r > 255 ||
+    typeof g !== "number" || g < 0 || g > 255 ||
+    typeof b !== "number" || b < 0 || b > 255
+  ) {
+    return res.status(400).json({ error: "Bad color" });
+  }
+  // Можно добавить: state.light.color = {r,g,b}; saveState();
+  const arduinoResp = await sendToArduino(`color?r=${r}&g=${g}&b=${b}`);
+  if (arduinoResp === null) {
+    return res.status(502).json({ error: "Не удалось связаться с Arduino" });
+  }
+  res.json({ r, g, b });
+});
 // --- Свет (эффекты, интеграция с Arduino) ---
 const EFFECT_MAP = {
   off: "off",             // Выключить
