@@ -9,6 +9,7 @@ const effectNames = [
   "Эффект по умолчанию", // default
   "Затухание",           // fade
   "Реле",                // relay (можешь убрать если не надо)
+  "Радуга"
 ];
 
 // Точные названия для API/backend/Arduino
@@ -19,7 +20,8 @@ const effectApiNames = [
   "firebounce",
   "default",
   "fade",
-  "relay", // можно убрать
+  "relay",
+  "rainbow",
 ];
 
 // Универсальный конструктор адреса API
