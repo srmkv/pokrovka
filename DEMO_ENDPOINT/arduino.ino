@@ -5,74 +5,79 @@
 
 #define LED_PIN    6
 #define LED_COUNT  80
-#define BRIGHTNESS 100
+#define DEFAULT_BRIGHTNESS 100
 
 CRGB leds[LED_COUNT];
 
-// Ethernet
 byte mac[] = { 0x00, 0xAA, 0xBB, 0xCC, 0xDA, 0x02 };
 IPAddress ip(192, 168, 0, 115);
 EthernetServer server(80);
 
-// RC Switch (433 МГц)
 RCSwitch mySwitch = RCSwitch();
 const unsigned long relayCode = 11868692;
 const int txPin = 9;
 
-// Эффекты
+// Глобальные значения цвета и яркости
+int globalR = 255, globalG = 181, globalB = 71;
+int userBrightness = DEFAULT_BRIGHTNESS;
+
 enum EffectType { EFFECT_NONE, EFFECT_ON, EFFECT_OFF, EFFECT_FIRE, EFFECT_BOUNCE, EFFECT_DEFAULT };
 EffectType currentEffect = EFFECT_NONE;
 
-// Переменные для эффектов
 unsigned long lastUpdateTime = 0;
 const int updateInterval = 20;
 int firePosition = 0;
 
-// Для эффекта "туда-обратно"
 enum BounceState { BOUNCE_OFF, BOUNCE_FORWARD, BOUNCE_PAUSE, BOUNCE_BACK };
 BounceState bounceState = BOUNCE_OFF;
 int bouncePos = 0;
 unsigned long bounceTimer = 0;
 
-// Для эффекта по умолчанию
 enum DefaultMode { FILL, HOLD, FADE, WAIT_RELEASE };
 DefaultMode defaultMode = FILL;
 int filled = 0;
 int fadeIdx = LED_COUNT - 1;
 
-// Для реле
 unsigned long lastReceivedCode = 0;
 
-void setAll(CRGB color) {
-  fill_solid(leds, LED_COUNT, color);
+void updateFastLEDBrightness() {
+  FastLED.setBrightness(map(userBrightness, 0, 100, 0, 255));
+}
+
+void setAllGlobalColor() {
+  for (int i = 0; i < LED_COUNT; i++)
+    leds[i] = CRGB(globalR, globalG, globalB);
   FastLED.show();
 }
 
 // ==== ЭФФЕКТЫ ====
-
 void startOnEffect() {
   currentEffect = EFFECT_ON;
-  setAll(CRGB(255, 100, 0));
+  setAllGlobalColor();
 }
 
 void startOffEffect() {
   currentEffect = EFFECT_OFF;
-  setAll(CRGB::Black);
+  fill_solid(leds, LED_COUNT, CRGB::Black);
+  FastLED.show();
 }
 
 void startFireEffect() {
   currentEffect = EFFECT_FIRE;
   firePosition = 0;
-  setAll(CRGB::Black);
+  fill_solid(leds, LED_COUNT, CRGB::Black);
+  FastLED.show();
 }
 
 void fireEffectLoop() {
-  setAll(CRGB::Black);
+  fill_solid(leds, LED_COUNT, CRGB::Black);
   for (int i = 0; i < 10; i++) {
     int pos = firePosition - i;
     if (pos >= 0 && pos < LED_COUNT) {
-      int brightness = 255 - (i * 25);
-      leds[pos] = CRGB(brightness, brightness / 4, 0);
+      int k = 255 - (i * 25);
+      leds[pos].r = (globalR * k) / 255;
+      leds[pos].g = (globalG * k) / 255;
+      leds[pos].b = (globalB * k) / 255;
     }
   }
   FastLED.show();
@@ -80,20 +85,20 @@ void fireEffectLoop() {
   if (firePosition >= LED_COUNT) firePosition = 0;
 }
 
-// --- Bounce эффект (туда-обратно) ---
 void startBounceEffect() {
   currentEffect = EFFECT_BOUNCE;
   bounceState = BOUNCE_FORWARD;
   bouncePos = 0;
   bounceTimer = millis();
-  setAll(CRGB::Black);
+  fill_solid(leds, LED_COUNT, CRGB::Black);
+  FastLED.show();
 }
 
 void bounceEffectLoop() {
   switch (bounceState) {
     case BOUNCE_FORWARD:
       if (bouncePos < LED_COUNT) {
-        leds[bouncePos] = CRGB(255, 100, 0);
+        leds[bouncePos] = CRGB(globalR, globalG, globalB);
         FastLED.show();
         bouncePos++;
       } else {
@@ -123,20 +128,20 @@ void bounceEffectLoop() {
   }
 }
 
-// --- Default эффект (анимация по умолчанию) ---
 void startDefaultEffect() {
   currentEffect = EFFECT_DEFAULT;
   defaultMode = FILL;
   filled = 0;
   fadeIdx = LED_COUNT - 1;
-  setAll(CRGB::Black);
+  fill_solid(leds, LED_COUNT, CRGB::Black);
+  FastLED.show();
 }
 
 void defaultEffectLoop() {
   switch (defaultMode) {
     case FILL:
       if (filled < LED_COUNT) {
-        leds[filled] = CRGB(255, 100, 255);
+        leds[filled] = CRGB(globalR, globalG, globalB);
         FastLED.show();
         delay(20);
         filled++;
@@ -161,21 +166,18 @@ void defaultEffectLoop() {
   }
 }
 
-// --- Реле ---
 void toggleRelay() {
   Serial.println(F("Передаём код реле..."));
   mySwitch.send(relayCode, 24);
   delay(500);
 }
 
-// ==== SETUP ====
-
 void setup() {
   Serial.begin(9600);
 
   FastLED.addLeds<WS2811, LED_PIN, GRB>(leds, LED_COUNT);
-  FastLED.setBrightness(BRIGHTNESS);
-  setAll(CRGB::Black);
+  updateFastLEDBrightness();
+  setAllGlobalColor();
 
   Ethernet.begin(mac, ip);
   server.begin();
@@ -186,12 +188,10 @@ void setup() {
   mySwitch.enableReceive(0);
 }
 
-// ==== LOOP ====
-
 void loop() {
   EthernetClient client = server.available();
   if (client) {
-    char request[100] = {0};  // увеличили размер, чтобы влезали длинные запросы
+    char request[100] = {0};
     byte idx = 0;
 
     while (client.connected()) {
@@ -202,30 +202,29 @@ void loop() {
       }
     }
 
-    // --- Эффекты ---
     if (strstr(request, "GET /on")) startOnEffect();
     else if (strstr(request, "GET /off")) startOffEffect();
     else if (strstr(request, "GET /fire")) startFireEffect();
     else if (strstr(request, "GET /firebounce")) startBounceEffect();
     else if (strstr(request, "GET /default")) startDefaultEffect();
     else if (strstr(request, "GET /relay")) toggleRelay();
-    else if (strstr(request, "GET /fade")) { 
+    else if (strstr(request, "GET /fade")) {
       if (currentEffect == EFFECT_DEFAULT && defaultMode == HOLD) defaultMode = FADE;
     }
 
-    // --- Яркость ---
     if (strstr(request, "GET /brightness")) {
       char *valStr = strstr(request, "val=");
       if (valStr) {
         int val = atoi(valStr + 4);
         val = constrain(val, 0, 100);
-        FastLED.setBrightness(map(val, 0, 100, 0, 255));
+        userBrightness = val;
+        updateFastLEDBrightness();
         FastLED.show();
       }
     }
-    // --- Цвет ---
+
     if (strstr(request, "GET /color")) {
-      int r = 255, g = 100, b = 0;
+      int r = globalR, g = globalG, b = globalB;
       char *rStr = strstr(request, "r=");
       char *gStr = strstr(request, "g=");
       char *bStr = strstr(request, "b=");
@@ -235,11 +234,12 @@ void loop() {
       r = constrain(r, 0, 255);
       g = constrain(g, 0, 255);
       b = constrain(b, 0, 255);
-      for (int i = 0; i < LED_COUNT; i++) leds[i] = CRGB(r, g, b);
-      FastLED.show();
+      globalR = r;
+      globalG = g;
+      globalB = b;
+      setAllGlobalColor();
     }
 
-    // --- Ответ клиенту ---
     client.println(F("HTTP/1.1 200 OK"));
     client.println(F("Content-Type: text/html"));
     client.println(F("Connection: close"));
@@ -261,14 +261,13 @@ void loop() {
     client.stop();
   }
 
-  // RF433
   if (mySwitch.available()) {
     unsigned long code = mySwitch.getReceivedValue();
     lastReceivedCode = code;
     mySwitch.resetAvailable();
   }
 
-  // Обработка текущего эффекта
+  updateFastLEDBrightness();
   switch (currentEffect) {
     case EFFECT_FIRE:
       if (millis() - lastUpdateTime >= updateInterval) {
@@ -285,9 +284,6 @@ void loop() {
     case EFFECT_DEFAULT:
       defaultEffectLoop();
       break;
-    case EFFECT_ON:
-    case EFFECT_OFF:
-    case EFFECT_NONE:
     default:
       break;
   }
