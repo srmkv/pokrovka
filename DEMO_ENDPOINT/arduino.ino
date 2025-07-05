@@ -9,10 +9,12 @@
 
 CRGB leds[LED_COUNT];
 
+// Ethernet
 byte mac[] = { 0x00, 0xAA, 0xBB, 0xCC, 0xDA, 0x02 };
 IPAddress ip(192, 168, 0, 115);
 EthernetServer server(80);
 
+// RC Switch (433 МГц)
 RCSwitch mySwitch = RCSwitch();
 const unsigned long relayCode = 11868692;
 const int txPin = 9;
@@ -21,29 +23,38 @@ const int txPin = 9;
 int globalR = 255, globalG = 181, globalB = 71;
 int userBrightness = DEFAULT_BRIGHTNESS;
 
-enum EffectType { EFFECT_NONE, EFFECT_ON, EFFECT_OFF, EFFECT_FIRE, EFFECT_BOUNCE, EFFECT_DEFAULT };
+// Эффекты
+enum EffectType { EFFECT_NONE, EFFECT_ON, EFFECT_OFF, EFFECT_FIRE, EFFECT_BOUNCE, EFFECT_DEFAULT, EFFECT_RAINBOW };
 EffectType currentEffect = EFFECT_NONE;
 
 unsigned long lastUpdateTime = 0;
 const int updateInterval = 20;
 int firePosition = 0;
 
+// Для эффекта "туда-обратно"
 enum BounceState { BOUNCE_OFF, BOUNCE_FORWARD, BOUNCE_PAUSE, BOUNCE_BACK };
 BounceState bounceState = BOUNCE_OFF;
 int bouncePos = 0;
 unsigned long bounceTimer = 0;
 
+// Для эффекта по умолчанию
 enum DefaultMode { FILL, HOLD, FADE, WAIT_RELEASE };
 DefaultMode defaultMode = FILL;
 int filled = 0;
 int fadeIdx = LED_COUNT - 1;
 
+// Для радуги
+int rainbowStep = 0;
+
+// Для реле
 unsigned long lastReceivedCode = 0;
 
+// --- Яркость ---
 void updateFastLEDBrightness() {
   FastLED.setBrightness(map(userBrightness, 0, 100, 0, 255));
 }
 
+// --- Цвет ---
 void setAllGlobalColor() {
   for (int i = 0; i < LED_COUNT; i++)
     leds[i] = CRGB(globalR, globalG, globalB);
@@ -51,24 +62,27 @@ void setAllGlobalColor() {
 }
 
 // ==== ЭФФЕКТЫ ====
+
+// Обычное включение (цвет по глобальным переменным)
 void startOnEffect() {
   currentEffect = EFFECT_ON;
   setAllGlobalColor();
 }
 
+// Отключение
 void startOffEffect() {
   currentEffect = EFFECT_OFF;
   fill_solid(leds, LED_COUNT, CRGB::Black);
   FastLED.show();
 }
 
+// "Огонь"
 void startFireEffect() {
   currentEffect = EFFECT_FIRE;
   firePosition = 0;
   fill_solid(leds, LED_COUNT, CRGB::Black);
   FastLED.show();
 }
-
 void fireEffectLoop() {
   fill_solid(leds, LED_COUNT, CRGB::Black);
   for (int i = 0; i < 10; i++) {
@@ -85,6 +99,7 @@ void fireEffectLoop() {
   if (firePosition >= LED_COUNT) firePosition = 0;
 }
 
+// Туда-обратно
 void startBounceEffect() {
   currentEffect = EFFECT_BOUNCE;
   bounceState = BOUNCE_FORWARD;
@@ -93,7 +108,6 @@ void startBounceEffect() {
   fill_solid(leds, LED_COUNT, CRGB::Black);
   FastLED.show();
 }
-
 void bounceEffectLoop() {
   switch (bounceState) {
     case BOUNCE_FORWARD:
@@ -128,6 +142,7 @@ void bounceEffectLoop() {
   }
 }
 
+// Анимация по умолчанию
 void startDefaultEffect() {
   currentEffect = EFFECT_DEFAULT;
   defaultMode = FILL;
@@ -136,7 +151,6 @@ void startDefaultEffect() {
   fill_solid(leds, LED_COUNT, CRGB::Black);
   FastLED.show();
 }
-
 void defaultEffectLoop() {
   switch (defaultMode) {
     case FILL:
@@ -166,6 +180,21 @@ void defaultEffectLoop() {
   }
 }
 
+// --- Радуга (Color Wipe Rainbow) ---
+void startRainbowEffect() {
+  currentEffect = EFFECT_RAINBOW;
+  rainbowStep = 0;
+}
+void rainbowEffectLoop() {
+  for (int i = 0; i < LED_COUNT; i++) {
+    leds[i] = CHSV((rainbowStep + i * 7) % 256, 255, map(userBrightness, 0, 100, 0, 255));
+  }
+  FastLED.show();
+  rainbowStep++;
+  if (rainbowStep > 255) rainbowStep = 0;
+}
+
+// --- Реле ---
 void toggleRelay() {
   Serial.println(F("Передаём код реле..."));
   mySwitch.send(relayCode, 24);
@@ -207,11 +236,13 @@ void loop() {
     else if (strstr(request, "GET /fire")) startFireEffect();
     else if (strstr(request, "GET /firebounce")) startBounceEffect();
     else if (strstr(request, "GET /default")) startDefaultEffect();
+    else if (strstr(request, "GET /rainbow")) startRainbowEffect();
     else if (strstr(request, "GET /relay")) toggleRelay();
     else if (strstr(request, "GET /fade")) {
       if (currentEffect == EFFECT_DEFAULT && defaultMode == HOLD) defaultMode = FADE;
     }
 
+    // --- Яркость ---
     if (strstr(request, "GET /brightness")) {
       char *valStr = strstr(request, "val=");
       if (valStr) {
@@ -222,7 +253,7 @@ void loop() {
         FastLED.show();
       }
     }
-
+    // --- Цвет ---
     if (strstr(request, "GET /color")) {
       int r = globalR, g = globalG, b = globalB;
       char *rStr = strstr(request, "r=");
@@ -240,6 +271,7 @@ void loop() {
       setAllGlobalColor();
     }
 
+    // --- Ответ клиенту (web demo) ---
     client.println(F("HTTP/1.1 200 OK"));
     client.println(F("Content-Type: text/html"));
     client.println(F("Connection: close"));
@@ -251,7 +283,9 @@ void loop() {
     client.println(F("<button onclick=\"location.href='/fire'\">Огонь</button><br>"));
     client.println(F("<button onclick=\"location.href='/firebounce'\">Туда-обратно</button><br>"));
     client.println(F("<button onclick=\"location.href='/default'\">Эффект по умолчанию</button><br>"));
+    client.println(F("<button onclick=\"location.href='/rainbow'\">Радуга</button><br>"));
     client.println(F("<button onclick=\"location.href='/fade'\">Затухание</button><br>"));
+    client.println(F("<button onclick=\"location.href='/rainbow'\">Радуга</button><br>"));
     client.println(F("<button onclick=\"location.href='/relay'\">Реле</button><br>"));
     client.println(F("<button onclick=\"location.href='/brightness?val=50'\">Яркость 50%</button><br>"));
     client.println(F("<button onclick=\"location.href='/color?r=0&g=255&b=0'\">Зелёный</button><br>"));
@@ -261,13 +295,17 @@ void loop() {
     client.stop();
   }
 
+  // RF433
   if (mySwitch.available()) {
     unsigned long code = mySwitch.getReceivedValue();
     lastReceivedCode = code;
     mySwitch.resetAvailable();
   }
 
+  // Поддержание яркости для всех эффектов
   updateFastLEDBrightness();
+
+  // Эффекты
   switch (currentEffect) {
     case EFFECT_FIRE:
       if (millis() - lastUpdateTime >= updateInterval) {
@@ -283,6 +321,12 @@ void loop() {
       break;
     case EFFECT_DEFAULT:
       defaultEffectLoop();
+      break;
+    case EFFECT_RAINBOW:
+      if (millis() - lastUpdateTime >= updateInterval) {
+        lastUpdateTime = millis();
+        rainbowEffectLoop();
+      }
       break;
     default:
       break;
