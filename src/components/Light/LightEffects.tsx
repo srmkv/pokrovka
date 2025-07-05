@@ -1,29 +1,69 @@
 import React, { useState } from "react";
 
+// Точные названия эффектов из твоего Arduino-скетча
 const effectNames = [
-  "Бегущий огонь",
-  "Плавное затухание",
-  "Змейка",
-  "Навстречу",
+  "Включить",            // on
+  "Выключить",           // off
+  "Огонь",               // fire
+  "Туда-обратно",        // firebounce
+  "Эффект по умолчанию", // default
+  "Затухание",           // fade
+  "Реле",                // relay (можешь убрать если не надо)
 ];
+
+// Точные названия для API/backend/Arduino
+const effectApiNames = [
+  "on",
+  "off",
+  "fire",
+  "firebounce",
+  "default",
+  "fade",
+  "relay", // можно убрать
+];
+
+// Универсальный конструктор адреса API
+function getApiUrl(path: string) {
+  const host = process.env.REACT_APP_API_HOST || "http://localhost";
+  const port = process.env.REACT_APP_API_PORT || "3010";
+  return `${host}:${port}${path}`;
+}
 
 const LightEffects: React.FC = () => {
   const [loadingIdx, setLoadingIdx] = useState<number | null>(null);
   const [active, setActive] = useState<number | null>(null);
 
+  // При монтировании компонента получаем текущий эффект
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const resp = await fetch(getApiUrl("/api/light/effects"));
+        if (resp.ok) {
+          const data = await resp.json();
+          const idx = effectApiNames.indexOf(data.effect);
+          if (idx !== -1) setActive(idx);
+        }
+      } catch {/* игнорируем */}
+    })();
+  }, []);
+
   const setEffect = async (idx: number) => {
     setLoadingIdx(idx);
     try {
-      await fetch("/api/home", {
+      const resp = await fetch(getApiUrl("/api/light/effects"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          command: "set_effect",
-          value: idx + 1,
+          effect: effectApiNames[idx],
         }),
       });
-      setActive(idx);
-    } catch {
+      if (!resp.ok) {
+        const err = await resp.json();
+        alert("Ошибка: " + (err.error || "неизвестная ошибка"));
+      } else {
+        setActive(idx);
+      }
+    } catch (e) {
       alert("Ошибка отправки команды");
     }
     setLoadingIdx(null);
@@ -46,7 +86,7 @@ const LightEffects: React.FC = () => {
               disabled:opacity-60
             `}
             style={{
-              minWidth: 120,
+              minWidth: 140,
               letterSpacing: 0.2,
             }}
             disabled={loadingIdx !== null}
