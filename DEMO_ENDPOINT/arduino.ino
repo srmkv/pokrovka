@@ -4,7 +4,7 @@
 #include <RCSwitch.h>
 
 #define LED_PIN    6
-#define LED_COUNT  80
+#define LED_COUNT  300
 #define DEFAULT_BRIGHTNESS 100
 
 CRGB leds[LED_COUNT];
@@ -22,6 +22,7 @@ const int txPin = 9;
 // Глобальные значения цвета и яркости
 int globalR = 255, globalG = 181, globalB = 71;
 int userBrightness = DEFAULT_BRIGHTNESS;
+bool needUpdateBrightness = true;
 
 // Эффекты
 enum EffectType { EFFECT_NONE, EFFECT_ON, EFFECT_OFF, EFFECT_FIRE, EFFECT_BOUNCE, EFFECT_DEFAULT, EFFECT_RAINBOW };
@@ -186,12 +187,13 @@ void startRainbowEffect() {
   rainbowStep = 0;
 }
 void rainbowEffectLoop() {
+  // Мягкая радуга по всей ленте, плавное смещение
   for (int i = 0; i < LED_COUNT; i++) {
-    leds[i] = CHSV((rainbowStep + i * 7) % 256, 255, map(userBrightness, 0, 100, 0, 255));
+    uint8_t hue = (rainbowStep + i * 256 / LED_COUNT) % 256;
+    leds[i] = CHSV(hue, 200, 255); // 200 — насыщенность, 255 — max яркость
   }
   FastLED.show();
-  rainbowStep++;
-  if (rainbowStep > 255) rainbowStep = 0;
+  rainbowStep = (rainbowStep + 2) % 256;
 }
 
 // --- Реле ---
@@ -231,6 +233,7 @@ void loop() {
       }
     }
 
+    // --- Эффекты ---
     if (strstr(request, "GET /on")) startOnEffect();
     else if (strstr(request, "GET /off")) startOffEffect();
     else if (strstr(request, "GET /fire")) startFireEffect();
@@ -249,8 +252,7 @@ void loop() {
         int val = atoi(valStr + 4);
         val = constrain(val, 0, 100);
         userBrightness = val;
-        updateFastLEDBrightness();
-        FastLED.show();
+        needUpdateBrightness = true;
       }
     }
     // --- Цвет ---
@@ -285,7 +287,6 @@ void loop() {
     client.println(F("<button onclick=\"location.href='/default'\">Эффект по умолчанию</button><br>"));
     client.println(F("<button onclick=\"location.href='/rainbow'\">Радуга</button><br>"));
     client.println(F("<button onclick=\"location.href='/fade'\">Затухание</button><br>"));
-    client.println(F("<button onclick=\"location.href='/rainbow'\">Радуга</button><br>"));
     client.println(F("<button onclick=\"location.href='/relay'\">Реле</button><br>"));
     client.println(F("<button onclick=\"location.href='/brightness?val=50'\">Яркость 50%</button><br>"));
     client.println(F("<button onclick=\"location.href='/color?r=0&g=255&b=0'\">Зелёный</button><br>"));
@@ -302,10 +303,13 @@ void loop() {
     mySwitch.resetAvailable();
   }
 
-  // Поддержание яркости для всех эффектов
-  updateFastLEDBrightness();
+  // Только если изменилась яркость — обновляем
+  if (needUpdateBrightness) {
+    updateFastLEDBrightness();
+    needUpdateBrightness = false;
+  }
 
-  // Эффекты
+  // --- Эффекты
   switch (currentEffect) {
     case EFFECT_FIRE:
       if (millis() - lastUpdateTime >= updateInterval) {
