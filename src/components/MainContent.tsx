@@ -12,6 +12,11 @@ import LeakSensorBathroom from "../components/Water/LeakSensorBathroom";
 import WashingMachineSensor from "../components/Water/WashingMachineSensor";
 import DishwasherSensor  from "../components/Water/DishwasherSensor";
 import LeakSensorsRow from "./Water/LeakSensorsRow";
+import LampBulbPrihozhaya from "./LightOsn/LampBulbPrihozhaya";
+import LampBulbHoll from "./LightOsn/LampBulbHoll";
+import LampBulbKitchen from "./LightOsn/LampBulbKitchen";
+import LampBulbBath from "./LightOsn/LampBulbBath";
+import LampBulbGarderob from "./LightOsn/LampBulbGarderob";
 
 const MainContent: React.FC = () => {
   const [tab, setTab] = useState<"weather" | "control" | "traffic">("weather");
@@ -94,6 +99,16 @@ const MainContent: React.FC = () => {
               <DishwasherSensor />
             </div>
           </div>
+          <div className="my-10">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-5 justify-center">
+              <LampBulbPrihozhaya />
+              <LampBulbHoll />
+              <LampBulbKitchen />
+              <LampBulbBath />
+              <LampBulbGarderob />
+            </div>
+          </div>
+          
         </>
       ) : (
         // TRAFFIC

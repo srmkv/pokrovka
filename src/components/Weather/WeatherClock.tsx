@@ -13,7 +13,7 @@ interface WeatherClockProps {
   hours: HourData[];
 }
 
-const CLOCK_SIZE = 530;
+const CLOCK_SIZE = 545;
 const CLOCK_RADIUS = 240;
 const CENTER = CLOCK_SIZE / 2;
 
@@ -26,13 +26,15 @@ const WeatherClock: React.FC<WeatherClockProps> = ({ hours }) => {
     );
   }
 
+  const currentHour = new Date().getHours();
+
   return (
     <div style={{ width: CLOCK_SIZE, height: CLOCK_SIZE, position: "relative" }}>
       <svg width={CLOCK_SIZE} height={CLOCK_SIZE}>
         <circle
           cx={CENTER}
           cy={CENTER}
-          r={CLOCK_RADIUS + 20}
+          r={CLOCK_RADIUS + 30}
           fill="#1a1b2d"
           stroke="#232445"
           strokeWidth={4}
@@ -48,38 +50,74 @@ const WeatherClock: React.FC<WeatherClockProps> = ({ hours }) => {
           const timex = CENTER + Math.cos(angle) * (CLOCK_RADIUS - 75);
           const timey = CENTER + Math.sin(angle) * (CLOCK_RADIUS - 75);
 
-          const isCurrent = Number(h.hour) === new Date().getHours();
+          const isCurrent = Number(h.hour) === currentHour;
 
           const iconKey = conditionMap[h.condition] || "Shower";
           const iconSrc = WeatherIconMap[iconKey] || WeatherIconMap["Shower"];
 
           return (
             <g key={idx}>
-              <foreignObject x={x - 22} y={y - 22} width={44} height={44}>
-                <div style={{ opacity: isCurrent ? 1 : 0.7, width: 40 }}>
-                  <img src={iconSrc} alt={h.condition} style={{ width: 40 }} />
+              {/* Иконка — крупнее, если активная */}
+              <foreignObject
+                x={x - (isCurrent ? 32 : 22)}
+                y={y - (isCurrent ? 32 : 22)}
+                width={isCurrent ? 64 : 44}
+                height={isCurrent ? 64 : 44}
+              >
+                <div style={{
+                  opacity: isCurrent ? 1 : 0.7,
+                  width: isCurrent ? 60 : 40,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.25s"
+                }}>
+                  <img
+                    src={iconSrc}
+                    alt={h.condition}
+                    style={{
+                      width: isCurrent ? 60 : 40,
+                      
+                      
+                      transition: "all 0.2s"
+                    }}
+                  />
                 </div>
               </foreignObject>
+              {/* Температура */}
               <text
                 x={tx}
-                y={ty}
+                y={ty + (isCurrent ? 7 : 0)}
                 textAnchor="middle"
                 alignmentBaseline="middle"
-                fontSize="18"
-                fontWeight={isCurrent ? 700 : 600}
+                fontSize={isCurrent ? 30 : 18}
+                fontWeight={isCurrent ? 900 : 600}
                 fill={isCurrent ? "#fff" : "#ffd"}
-                style={{ pointerEvents: "none", userSelect: "none" }}
+                style={{
+                  pointerEvents: "none",
+                  userSelect: "none",
+                  filter: isCurrent ? "drop-shadow(0 0 4px #4fc3f7)" : undefined,
+                  transition: "all 0.2s"
+                }}
               >
                 {h.temp > 0 ? `+${h.temp}` : h.temp}
               </text>
+              {/* Время часа */}
               <text
                 x={timex}
                 y={timey}
                 textAnchor="middle"
                 alignmentBaseline="middle"
-                fontSize="18"
+                fontSize={isCurrent ? 30 : 18}
+                fontWeight={isCurrent ? 700 : 500}
                 fill={isCurrent ? "#4fc3f7" : "#888"}
-                style={{ pointerEvents: "none", userSelect: "none" }}
+                style={{
+                  pointerEvents: "none",
+                  userSelect: "none",
+                  letterSpacing: isCurrent ? 2 : 0,
+                  textShadow: isCurrent ? "0 0 8px #1a223c" : undefined,
+                  transition: "all 0.2s"
+                }}
               >
                 {h.hour}
               </text>
@@ -89,7 +127,6 @@ const WeatherClock: React.FC<WeatherClockProps> = ({ hours }) => {
         {/* Центр — всегда актуальное время через компонент Clock */}
         <circle cx={CENTER} cy={CENTER} r={80} fill="#232445" />
         <g>
-          {/* x/y="50%" — центр; SVG поддерживает проценты */}
           <Clock fontSize={38} />
         </g>
       </svg>
