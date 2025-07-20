@@ -37,8 +37,10 @@ let state = {
   floor: {
     living: { on: true, temp: 26 },
     bath: { on: false, temp: 24 }
-  }
+  },
+  relays: {} 
 };
+
 
 // --- Загрузка состояния из файла при запуске ---
 function loadState() {
@@ -209,21 +211,32 @@ app.post("/api/light/effects", async (req, res) => {
 });
 // Реле свет
 app.post("/api/relay/send-multiple", async (req, res) => {
-  const codes = req.body.codes;
-  if (!Array.isArray(codes) || !codes.every(c => /^\d{6,26}$/.test(String(c)))) {
+  const { codes } = req.body;
+
+  if (!Array.isArray(codes) || !codes.every(c => typeof c === "object" && /^\d{6,26}$/.test(String(c.code)))) {
     return res.status(400).json({ error: "Invalid codes array" });
   }
 
   let results = [];
 
-  for (const code of codes) {
+  for (const { code, tag, state: on } of codes) {
     const resp = await sendToArduino(`relay?code=${code}`);
-    results.push({ code, success: resp !== null });
-    await new Promise(resolve => setTimeout(resolve, 500)); // Пауза между отправками
+    results.push({ code, tag, state: on, success: resp !== null });
+
+    if (typeof tag === "string" && typeof on === "boolean") {
+      state.relays = state.relays || {};
+      state.relays[tag] = on;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
 
+  saveState();
   res.json({ sent: results });
 });
+
+
+
 
 // --- Старт сервера ---
 app.listen(PORT, () => {
