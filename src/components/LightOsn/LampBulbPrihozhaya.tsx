@@ -73,30 +73,36 @@ const LampBulbPrihozhaya: React.FC = () => {
   const [isOn, setIsOn] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const toggleLamp = async () => {
-    if (loading) return;
-    setLoading(true);
+   const toggleLamp = async () => {
+  if (loading) return;
+  setLoading(true);
 
-    try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ codes: [RELAY_CODE] })
-      });
+  try {
+    const newState = !isOn;
 
-      const result = await response.json();
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        codes: [
+          { tag: "prihozhaya", code: RELAY_CODE, state: newState }
+        ]
+      })
+    });
 
-      if (response.ok && result.sent?.[0]?.success) {
-        setIsOn(prev => !prev);
-      } else {
-        console.error("Ошибка ответа сервера:", result);
-      }
-    } catch (error) {
-      console.error("Ошибка запроса:", error);
-    } finally {
-      setLoading(false);
+    const result = await response.json();
+
+    if (response.ok && result.sent?.[0]?.success) {
+      setIsOn(newState);
+    } else {
+      console.error("Ошибка ответа сервера:", result);
     }
-  };
+  } catch (error) {
+    console.error("Ошибка запроса:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div style={{
