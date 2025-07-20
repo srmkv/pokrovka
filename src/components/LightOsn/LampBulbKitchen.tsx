@@ -2,8 +2,14 @@ import React, { useState } from "react";
 
 const LAMP_ON = "#ffe066";
 const LAMP_OFF = "#8c92a4";
+const RELAY_CODE = 11868689;
 
-// SVG как отдельный компонент для удобства
+// Получаем адрес API из переменных окружения
+const API_HOST = process.env.REACT_APP_API_HOST || "http://localhost";
+const API_PORT = process.env.REACT_APP_API_PORT || "3010";
+const API_BASE = process.env.REACT_APP_API_BASE || "/api";
+const API_URL = `${API_HOST}:${API_PORT}${API_BASE}/relay/send-multiple`;
+
 function BulbSVG({ isOn }: { isOn: boolean }) {
   return (
     <svg
@@ -13,13 +19,11 @@ function BulbSVG({ isOn }: { isOn: boolean }) {
       fill="none"
       style={{
         cursor: "pointer",
-        filter: isOn
-          ? "drop-shadow(0 0 30px #ffe06688)"
-          : undefined,
+        filter: isOn ? "drop-shadow(0 0 30px #ffe06688)" : undefined,
         transition: "filter 0.2s"
       }}
     >
-      <g>
+     <g>
         {/* Лампочка-груша */}
         <path
           d="M117.4,66.8C89.8,72.1,69.3,92.6,64.5,120c-1.2,6.7-1.2,13.3-0.1,18.8c2.5,11.9,10.4,26.1,21.3,38c1.7,1.9,3.9,5.1,4.8,7.1c1.5,3.4,1.7,4.4,2,15.7l0.3,12l1.9,2.8c1.1,1.5,2.9,3.4,4,4.1c1.5,1,2.1,1.9,2.4,3.8c1.2,6.8,7.9,15.4,14.6,18.6c1.9,0.9,5.5,2,7.9,2.4c13.6,2.4,27.3-6.9,30.8-20.8c0.4-1.7,1-3,1.3-3c1.2,0,5.2-4.2,6.5-6.7c1.2-2.3,1.4-4.1,1.8-14.6c0.3-11.3,0.5-12.1,2.1-15.2c1-1.8,3.3-5,5.2-7.1c10.4-11.8,17.5-24.5,20.2-36.2c0.8-3.4,1-6.4,0.7-12.5c-1.2-28.8-21.5-52.9-50.1-59.6C136,66,123.6,65.7,117.4,66.8z M136.4,76.2c20.4,3.2,37.2,17.5,43.9,37.4c2.6,7.8,3.3,18.4,1.6,25.1c-2.3,8.8-9.2,20.9-17.5,30.3c-8.4,9.5-9.4,12.3-9.9,27.5c-0.4,11.2-0.5,11.9-1.9,13.2l-1.5,1.5H128h-23.3l-1.2-1.5c-1.1-1.3-1.2-2.6-1.2-10.6c0-13.5-2.4-21.3-8.6-28.1c-7.7-8.3-14.6-19-17.9-27.9c-1.9-5-2.1-6-2.1-13.5c-0.1-8.5,0.8-12.6,3.7-20.1c5.7-14,18.2-25.9,32.8-30.9C119,75.7,127.7,74.8,136.4,76.2z M144.8,221.6c0,0.2-0.6,1.5-1.3,2.8c-2.6,5.2-9.9,9.7-15.5,9.7c-2.7,0-7.6-1.7-10.4-3.5c-2.4-1.6-6.3-6.8-6.3-8.5c0-0.6,3.4-0.8,16.8-0.8C137.3,221.3,144.8,221.4,144.8,221.6z"
@@ -67,6 +71,32 @@ function BulbSVG({ isOn }: { isOn: boolean }) {
 
 const LampBulbKitchen: React.FC = () => {
   const [isOn, setIsOn] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const toggleLamp = async () => {
+    if (loading) return;
+    setLoading(true);
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codes: [RELAY_CODE] })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.sent?.[0]?.success) {
+        setIsOn(prev => !prev);
+      } else {
+        console.error("Ошибка ответа сервера:", result);
+      }
+    } catch (error) {
+      console.error("Ошибка запроса:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div style={{
@@ -75,11 +105,10 @@ const LampBulbKitchen: React.FC = () => {
       alignItems: "center",
       userSelect: "none"
     }}>
-
-      <div onClick={() => setIsOn(v => !v)}>
+      <div onClick={toggleLamp}>
         <BulbSVG isOn={isOn} />
       </div>
-      <span className="text-sm text-gray-350" style={{color: isOn ? LAMP_ON : "#888"}}>Кухня</span>
+      <span style={{ color: isOn ? LAMP_ON : "#888" }}>Кухня</span>
       <div
         style={{
           marginTop: 12,
@@ -91,7 +120,7 @@ const LampBulbKitchen: React.FC = () => {
           transition: "color 0.18s"
         }}
       >
-        {isOn ? "ВКЛЮЧЕНО" : "ВЫКЛЮЧЕНО"}
+        {loading ? "..." : isOn ? "ВКЛЮЧЕНО" : "ВЫКЛЮЧЕНО"}
       </div>
     </div>
   );
