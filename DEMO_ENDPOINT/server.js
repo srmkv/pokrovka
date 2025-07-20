@@ -207,6 +207,23 @@ app.post("/api/light/effects", async (req, res) => {
     res.json(state.floor[room]);
   });
 });
+// Реле свет
+app.post("/api/relay/send-multiple", async (req, res) => {
+  const codes = req.body.codes;
+  if (!Array.isArray(codes) || !codes.every(c => /^\d{6,26}$/.test(String(c)))) {
+    return res.status(400).json({ error: "Invalid codes array" });
+  }
+
+  let results = [];
+
+  for (const code of codes) {
+    const resp = await sendToArduino(`relay?code=${code}`);
+    results.push({ code, success: resp !== null });
+    await new Promise(resolve => setTimeout(resolve, 500)); // Пауза между отправками
+  }
+
+  res.json({ sent: results });
+});
 
 // --- Старт сервера ---
 app.listen(PORT, () => {
