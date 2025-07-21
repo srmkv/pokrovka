@@ -46,4 +46,14 @@ You can learn more in the [Create React App documentation](https://facebook.gith
 To learn React, check out the [React documentation](https://reactjs.org/).
 
 <img width="907" height="358" alt="873bb7c8cfaef9bce1a8d7aeb0755391a05fc500" src="https://github.com/user-attachments/assets/d7369568-c9be-4a47-9627-d29fa82630b2" />
+| Название пина на **CC1101 V2** | Назначение         | Подключение к **Arduino UNO** |
+| ------------------------------ | ------------------ | ----------------------------- |
+| `VCC`                          | Питание            | `3.3V` **(не 5V!)**           |
+| `GND`                          | Земля              | `GND`                         |
+| `CSN` / `CS` / `NSS`           | SPI Chip Select    | `D10`                         |
+| `SCK`                          | SPI Clock          | `D13`                         |
+| `MOSI` / `SI`                  | SPI Master Out     | `D11`                         |
+| `MISO` / `SO`                  | SPI Master In      | `D12`                         |
+| `GDO0`                         | Прерывание / выход | `D2` (или любой свободный)    |
+| `GDO2` (иногда есть)           | Необязательный     | Не требуется                  |
 
