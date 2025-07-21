@@ -46,14 +46,56 @@ You can learn more in the [Create React App documentation](https://facebook.gith
 To learn React, check out the [React documentation](https://reactjs.org/).
 
 <img width="907" height="358" alt="873bb7c8cfaef9bce1a8d7aeb0755391a05fc500" src="https://github.com/user-attachments/assets/d7369568-c9be-4a47-9627-d29fa82630b2" />
-| Название пина на **CC1101 V2** | Назначение         | Подключение к **Arduino UNO** |
-| ------------------------------ | ------------------ | ----------------------------- |
-| `VCC`                          | Питание            | `3.3V` **(не 5V!)**           |
-| `GND`                          | Земля              | `GND`                         |
-| `CSN` / `CS` / `NSS`           | SPI Chip Select    | `D10`                         |
-| `SCK`                          | SPI Clock          | `D13`                         |
-| `MOSI` / `SI`                  | SPI Master Out     | `D11`                         |
-| `MISO` / `SO`                  | SPI Master In      | `D12`                         |
-| `GDO0`                         | Прерывание / выход | `D2` (или любой свободный)    |
-| `GDO2` (иногда есть)           | Необязательный     | Не требуется                  |
+<table border="1" cellpadding="6" cellspacing="0">
+  <thead>
+    <tr>
+      <th>Пин CC1101 V2</th>
+      <th>Назначение</th>
+      <th>Подключение к Arduino UNO</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>VCC</td>
+      <td>Питание</td>
+      <td>3.3V <strong>(НЕ 5V!)</strong></td>
+    </tr>
+    <tr>
+      <td>GND</td>
+      <td>Земля</td>
+      <td>GND</td>
+    </tr>
+    <tr>
+      <td>CSN / CS / NSS</td>
+      <td>SPI Chip Select</td>
+      <td>D10</td>
+    </tr>
+    <tr>
+      <td>SCK</td>
+      <td>SPI Clock</td>
+      <td>D13</td>
+    </tr>
+    <tr>
+      <td>MOSI / SI</td>
+      <td>SPI Master Out</td>
+      <td>D11</td>
+    </tr>
+    <tr>
+      <td>MISO / SO</td>
+      <td>SPI Master In</td>
+      <td>D12</td>
+    </tr>
+    <tr>
+      <td>GDO0</td>
+      <td>Прерывание / выход</td>
+      <td>D2 (или другой свободный)</td>
+    </tr>
+    <tr>
+      <td>GDO2</td>
+      <td>Необязательный</td>
+      <td>Не подключать</td>
+    </tr>
+  </tbody>
+</table>
+
 
