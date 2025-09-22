@@ -10,20 +10,26 @@
   "blinds": {
     "kitchen": 96,
     "room": 0,
-    "holl": 0
+    "holl": 36
   },
   "light": {
     "brightness": 80,
-    "effect": "off"
+    "effect": "fade"
   },
   "floor": {
     "living": {
       "on": false,
-      "temp": 26
+      "temp": 22
     },
     "bath": {
       "on": false,
-      "temp": 28
+      "temp": 24
     }
+  },
+  "relays": {
+    "holl": true,
+    "kitchen": false,
+    "garderob": true,
+    "prihozhaya": true
   }
 }

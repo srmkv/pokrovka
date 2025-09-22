@@ -1,14 +1,12 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 const LAMP_ON = "#ffe066";
 const LAMP_OFF = "#8c92a4";
 const RELAY_CODE = 11868689;
 
-// Получаем адрес API из переменных окружения
-const API_HOST = process.env.REACT_APP_API_HOST || "http://localhost";
-const API_PORT = process.env.REACT_APP_API_PORT || "3010";
-const API_BASE = process.env.REACT_APP_API_BASE || "/api";
-const API_URL = `${API_HOST}:${API_PORT}${API_BASE}/relay/send-multiple`;
+// Универсальный BASE — только префикс, без host/port
+const API_BASE = (process.env.REACT_APP_API_BASE || "/api").replace(/\/$/, "");
+const apiUrl = (p: string) => `${API_BASE}${p.startsWith("/") ? p : `/${p}`}`;
 
 function BulbSVG({ isOn }: { isOn: boolean }) {
   return (
@@ -65,7 +63,7 @@ function BulbSVG({ isOn }: { isOn: boolean }) {
           </>
         )}
       </g>
-    </svg>
+  </svg>
   );
 }
 
@@ -73,46 +71,52 @@ const LampBulbBath: React.FC = () => {
   const [isOn, setIsOn] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Инициализируемся с бэка — берём текущее состояние из /api/home (state.relays.bath)
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(apiUrl("/home"));
+        if (!r.ok) return;
+        const j = await r.json();
+        if (j?.relays && typeof j.relays.bath === "boolean") {
+          setIsOn(j.relays.bath);
+        }
+      } catch {}
+    })();
+  }, []);
+
   const toggleLamp = async () => {
-  if (loading) return;
-  setLoading(true);
+    if (loading) return;
+    setLoading(true);
 
-  try {
-    const newState = !isOn;
+    try {
+      const newState = !isOn;
+      const response = await fetch(apiUrl("/relay/send-multiple"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          codes: [{ tag: "bath", code: RELAY_CODE, state: newState }]
+        })
+      });
 
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        codes: [
-          { tag: "bath", code: RELAY_CODE, state: newState }
-        ]
-      })
-    });
+      const result = await response.json().catch(() => ({}));
 
-    const result = await response.json();
-
-    if (response.ok && result.sent?.[0]?.success) {
-      setIsOn(newState);
-    } else {
-      console.error("Ошибка ответа сервера:", result);
+      if (response.ok && result?.sent?.[0]?.success) {
+        setIsOn(newState);
+      } else {
+        console.error("Ошибка ответа сервера:", result);
+        // можно показать toast/alert при желании
+      }
+    } catch (error) {
+      console.error("Ошибка запроса:", error);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Ошибка запроса:", error);
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   return (
-    <div style={{
-      display: "inline-flex",
-      flexDirection: "column",
-      alignItems: "center",
-      userSelect: "none"
-    }}>
-      <div onClick={toggleLamp}>
+    <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", userSelect: "none" }}>
+      <div onClick={toggleLamp} aria-label="toggle bath lamp" role="button">
         <BulbSVG isOn={isOn} />
       </div>
       <span style={{ color: isOn ? LAMP_ON : "#888" }}>Ванная</span>

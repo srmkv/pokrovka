@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-// Тип для зоны: living (прихожая) или bath (ванная)
+// Тип для зоны: living (гостиная/прихожая) или bath (ванная)
 type Zone = "living" | "bath";
 
 interface FloorState {
@@ -19,26 +19,32 @@ export function useFloorHeating(zone: Zone): FloorState {
   const [currentTemp, setCurrentTemp] = useState(24);
   const [loading, setLoading] = useState(false);
 
-  const API_HOST = process.env.REACT_APP_API_HOST || "http://localhost";
-  const API_PORT = process.env.REACT_APP_API_PORT || "3010";
-  const apiUrl = `${API_HOST}:${API_PORT}/api/floor/${zone}`;
+  // Берём только BASE, без хоста/порта
+  const API_BASE = (process.env.REACT_APP_API_BASE || "/api").replace(/\/$/, "");
+  const apiUrl = `${API_BASE}/floor/${zone}`;
 
   // Получаем состояние с сервера
   const reload = () => {
     setLoading(true);
     fetch(apiUrl)
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.json();
+      })
+      .then((data) => {
         setOnLocal(data.on ?? false);
         setTempLocal(data.temp ?? 24);
         setCurrentTemp(data.currentTemp ?? data.temp ?? 24);
+      })
+      .catch(() => {
+        /* можно показать ошибку */
       })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     reload();
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zone]);
 
   // Установка температуры
@@ -49,10 +55,16 @@ export function useFloorHeating(zone: Zone): FloorState {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ on, temp: newTemp }),
     })
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.json();
+      })
+      .then((data) => {
         setTempLocal(data.temp ?? newTemp);
         setCurrentTemp(data.currentTemp ?? data.temp ?? newTemp);
+      })
+      .catch(() => {
+        /* ошибка */
       })
       .finally(() => setLoading(false));
   };
@@ -65,9 +77,15 @@ export function useFloorHeating(zone: Zone): FloorState {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ on: value, temp }),
     })
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.json();
+      })
+      .then((data) => {
         setOnLocal(data.on ?? value);
+      })
+      .catch(() => {
+        /* ошибка */
       })
       .finally(() => setLoading(false));
   };
