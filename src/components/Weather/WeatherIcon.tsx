@@ -1,32 +1,45 @@
-// WeatherIcon.tsx
+// src/components/Weather/WeatherIcon.tsx
 import React from "react";
-import { WeatherIconMap } from "./WeatherIconMap";
+import { iconByWmo } from "./WeatherIconMap";
 
-interface WeatherIconProps {
-  iconName: string;
-  width?: number | string;
-  hight?: number | string;
-  className?: string;
+type Props = {
+  code?: number | null;      // WMO
+  iconName?: string;         // например "LightCloud.png"
+  size?: number;             // если задан — width=height=size
+  width?: number;
+  height?: number;
   alt?: string;
-}
-
-const WeatherIcon: React.FC<WeatherIconProps> = ({
-  iconName,
-  width = 80,
-  hight = 80,
-  className = "",
-  alt = "",
-}) => {
-  const src = WeatherIconMap[iconName] || WeatherIconMap["Clear"];
-  return (
-    <img
-      src={src}
-      alt={alt || iconName}
-      style={{ width: width}}
-      className={className}
-      draggable={false}
-    />
-  );
+  className?: string;
 };
 
-export default WeatherIcon;
+export default function WeatherIcon({
+  code,
+  iconName,
+  size,
+  width,
+  height,
+  alt = "weather icon",
+  className,
+}: Props) {
+  const file = iconName || iconByWmo(code) || "LightCloud.png";
+  const src = `/images/${file}`;
+  const w = size ?? width ?? 64;
+  const h = size ?? height ?? w;
+
+  const [imgSrc, setImgSrc] = React.useState(src);
+
+  return (
+    <img
+      src={imgSrc}
+      width={w}
+      height={h}
+      alt={alt}
+      title={alt}
+      loading="lazy"
+      decoding="async"
+      className={className}
+      onError={() => setImgSrc("/images/LightCloud.png")}
+      style={{ display: "inline-block" }}
+    />
+  );
+}

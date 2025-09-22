@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
-// Точные названия эффектов из твоего Arduino-скетча
+// Лейблы и значения эффектов (должны совпадать с бэком/Arduino)
 const effectNames = [
   "Включить",            // on
   "Выключить",           // off
@@ -8,11 +8,10 @@ const effectNames = [
   "Туда-обратно",        // firebounce
   "Эффект по умолчанию", // default
   "Затухание",           // fade
-  "Реле",                // relay (можешь убрать если не надо)
-  "Радуга"
+  "Реле",                // relay
+  "Радуга",              // rainbow
 ];
 
-// Точные названия для API/backend/Arduino
 const effectApiNames = [
   "on",
   "off",
@@ -24,51 +23,49 @@ const effectApiNames = [
   "rainbow",
 ];
 
-// Универсальный конструктор адреса API
-function getApiUrl(path: string) {
-  const host = process.env.REACT_APP_API_HOST || "http://localhost";
-  const port = process.env.REACT_APP_API_PORT || "3010";
-  return `${host}:${port}${path}`;
-}
+// Всегда относительный путь → уйдёт через nginx на твой бэкенд
+const API_BASE = (process.env.REACT_APP_API_BASE || "/api").replace(/\/$/, "");
+const effectsUrl = `${API_BASE}/light/effects`;
 
 const LightEffects: React.FC = () => {
   const [loadingIdx, setLoadingIdx] = useState<number | null>(null);
   const [active, setActive] = useState<number | null>(null);
 
-  // При монтировании компонента получаем текущий эффект
-  React.useEffect(() => {
+  // Получаем текущий эффект при монтировании
+  useEffect(() => {
     (async () => {
       try {
-        const resp = await fetch(getApiUrl("/api/light/effects"));
-        if (resp.ok) {
-          const data = await resp.json();
-          const idx = effectApiNames.indexOf(data.effect);
-          if (idx !== -1) setActive(idx);
-        }
-      } catch {/* игнорируем */}
+        const resp = await fetch(effectsUrl);
+        if (!resp.ok) throw new Error(String(resp.status));
+        const data = await resp.json();
+        const idx = effectApiNames.indexOf(data.effect);
+        if (idx !== -1) setActive(idx);
+      } catch {
+        /* можно показать уведомление */
+      }
     })();
   }, []);
 
   const setEffect = async (idx: number) => {
     setLoadingIdx(idx);
     try {
-      const resp = await fetch(getApiUrl("/api/light/effects"), {
+      const resp = await fetch(effectsUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          effect: effectApiNames[idx],
-        }),
+        body: JSON.stringify({ effect: effectApiNames[idx] }),
       });
       if (!resp.ok) {
-        const err = await resp.json();
-        alert("Ошибка: " + (err.error || "неизвестная ошибка"));
+        let msg = "неизвестная ошибка";
+        try { msg = (await resp.json()).error || msg; } catch {}
+        alert("Ошибка: " + msg);
       } else {
         setActive(idx);
       }
-    } catch (e) {
+    } catch {
       alert("Ошибка отправки команды");
+    } finally {
+      setLoadingIdx(null);
     }
-    setLoadingIdx(null);
   };
 
   return (
@@ -79,18 +76,10 @@ const LightEffects: React.FC = () => {
           <button
             key={name}
             onClick={() => setEffect(idx)}
-            className={`
-              py-3 px-4 rounded-lg font-medium text-gray-150 text-base
-              transition-all duration-150
-              border-2
+            className={`py-3 px-4 rounded-lg font-medium text-gray-150 text-base transition-all duration-150 border-2
               ${active === idx ? "bg-blue-700 border-blue-400 shadow-xl" : "bg-[#1a1b2d] border-[#232445]"}
-              hover:bg-blue-900 hover:border-blue-500
-              disabled:opacity-60
-            `}
-            style={{
-              minWidth: 140,
-              letterSpacing: 0.2,
-            }}
+              hover:bg-blue-900 hover:border-blue-500 disabled:opacity-60`}
+            style={{ minWidth: 140, letterSpacing: 0.2 }}
             disabled={loadingIdx !== null}
           >
             {loadingIdx === idx ? "..." : name}

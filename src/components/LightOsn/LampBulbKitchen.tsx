@@ -1,14 +1,12 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 const LAMP_ON = "#ffe066";
 const LAMP_OFF = "#8c92a4";
 const RELAY_CODE = 11868689;
 
-// Получаем адрес API из переменных окружения
-const API_HOST = process.env.REACT_APP_API_HOST || "http://localhost";
-const API_PORT = process.env.REACT_APP_API_PORT || "3010";
-const API_BASE = process.env.REACT_APP_API_BASE || "/api";
-const API_URL = `${API_HOST}:${API_PORT}${API_BASE}/relay/send-multiple`;
+// Универсальный BASE — только префикс, без host/port
+const API_BASE = (process.env.REACT_APP_API_BASE || "/api").replace(/\/$/, "");
+const apiUrl = (p: string) => `${API_BASE}${p.startsWith("/") ? p : `/${p}`}`;
 
 function BulbSVG({ isOn }: { isOn: boolean }) {
   return (
@@ -73,47 +71,72 @@ const LampBulbKitchen: React.FC = () => {
   const [isOn, setIsOn] = useState(false);
   const [loading, setLoading] = useState(false);
 
-   const toggleLamp = async () => {
-  if (loading) return;
-  setLoading(true);
+  // Инициализация из бэка: relays.kitchen
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(apiUrl("/home"));
+        if (!r.ok) return;
+        const j = await r.json();
+        if (j?.relays && typeof j.relays.kitchen === "boolean") {
+          setIsOn(j.relays.kitchen);
+        }
+      } catch {}
+    })();
+  }, []);
 
-  try {
-    const newState = !isOn;
+  const toggleLamp = async () => {
+    if (loading) return;
+    const next = !isOn;
 
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        codes: [
-          { tag: "Kitchen", code: RELAY_CODE, state: newState }
-        ]
-      })
-    });
+    setLoading(true);
+    setIsOn(next); // оптимистично
 
-    const result = await response.json();
+    try {
+      const response = await fetch(apiUrl("/relay/send-multiple"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          codes: [{ tag: "kitchen", code: RELAY_CODE, state: next }],
+        }),
+      });
 
-    if (response.ok && result.sent?.[0]?.success) {
-      setIsOn(newState);
-    } else {
-      console.error("Ошибка ответа сервера:", result);
+      const result = await response.json().catch(() => ({}));
+      if (!(response.ok && result?.sent?.[0]?.success)) {
+        setIsOn(!next); // роллбэк
+        console.error("Ошибка ответа сервера:", result);
+      }
+    } catch (error) {
+      setIsOn(!next); // роллбэк
+      console.error("Ошибка запроса:", error);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Ошибка запроса:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
-    <div style={{
-      display: "inline-flex",
-      flexDirection: "column",
-      alignItems: "center",
-      userSelect: "none"
-    }}>
-      <div onClick={toggleLamp}>
+    <div
+      style={{
+        display: "inline-flex",
+        flexDirection: "column",
+        alignItems: "center",
+        userSelect: "none",
+      }}
+    >
+      <button
+        onClick={toggleLamp}
+        disabled={loading}
+        aria-pressed={isOn}
+        style={{
+          background: "transparent",
+          border: 0,
+          padding: 0,
+          lineHeight: 0,
+          cursor: loading ? "not-allowed" : "pointer",
+        }}
+      >
         <BulbSVG isOn={isOn} />
-      </div>
+      </button>
       <span style={{ color: isOn ? LAMP_ON : "#888" }}>Кухня</span>
       <div
         style={{
@@ -123,7 +146,7 @@ const LampBulbKitchen: React.FC = () => {
           color: isOn ? LAMP_ON : "#888",
           letterSpacing: 1.5,
           textShadow: isOn ? "0 2px 14px #ffe066aa" : undefined,
-          transition: "color 0.18s"
+          transition: "color 0.18s",
         }}
       >
         {loading ? "..." : isOn ? "ВКЛЮЧЕНО" : "ВЫКЛЮЧЕНО"}

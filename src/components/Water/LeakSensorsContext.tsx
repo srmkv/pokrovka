@@ -18,7 +18,7 @@ const defaultState: LeakSensors = {
   washingMachineSensor: "unknown",
   lastLeakWashing: null,
   dishwasherSensor: "unknown",
-  lastLeakDishwasher: null
+  lastLeakDishwasher: null,
 };
 
 const LeakSensorsContext = createContext<LeakSensors>(defaultState);
@@ -28,30 +28,39 @@ export const useLeakSensorsState = () => useContext(LeakSensorsContext);
 export const LeakSensorsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<LeakSensors>(defaultState);
 
+  // базовый URL берём из env, но по умолчанию /api/home
+  const API_BASE =
+    (process.env.REACT_APP_API_BASE || "/api").replace(/\/$/, "") + "/home";
+
   useEffect(() => {
     let mounted = true;
+
     async function fetchState() {
       try {
-        const resp = await fetch(process.env.REACT_APP_API_URL || "http://localhost:3010/api/home");
+        const resp = await fetch(API_BASE);
+        if (!resp.ok) throw new Error(String(resp.status));
         const json = await resp.json();
         if (!mounted) return;
         setState({
-          leakSensor: json.leakSensor,
-          lastLeak: json.lastLeak,
-          washingMachineSensor: json.washingMachineSensor,
-          lastLeakWashing: json.lastLeakWashing,
-          dishwasherSensor: json.dishwasherSensor,
-          lastLeakDishwasher: json.lastLeakDishwasher
+          leakSensor: json.leakSensor ?? "unknown",
+          lastLeak: json.lastLeak ?? null,
+          washingMachineSensor: json.washingMachineSensor ?? "unknown",
+          lastLeakWashing: json.lastLeakWashing ?? null,
+          dishwasherSensor: json.dishwasherSensor ?? "unknown",
+          lastLeakDishwasher: json.lastLeakDishwasher ?? null,
         });
       } catch {
-        if (!mounted) return;
-        setState(defaultState);
+        if (mounted) setState(defaultState);
       }
     }
+
     fetchState();
     const interval = setInterval(fetchState, 5000);
-    return () => { mounted = false; clearInterval(interval); };
-  }, []);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [API_BASE]);
 
   return (
     <LeakSensorsContext.Provider value={state}>

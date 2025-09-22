@@ -7,31 +7,42 @@ export function useBlindsPosition(zone: Zone) {
   const [position, setPositionState] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 
-  // Сборка URL
-  const API_HOST = process.env.REACT_APP_API_HOST || "http://localhost";
-  const API_PORT = process.env.REACT_APP_API_PORT || "3010";
-  const API_BASE = process.env.REACT_APP_API_BASE || "/api";
-  const apiUrl = `${API_HOST}:${API_PORT}${API_BASE}/blinds/${zone}`;
+  // Используем относительный путь — без HOST/PORT
+  // REACT_APP_API_BASE можно оставить в .env как /api
+  const API_BASE = (process.env.REACT_APP_API_BASE || "/api").replace(/\/$/, "");
+  const apiUrl = `${API_BASE}/blinds/${zone}`;
 
-  // polling состояния с сервера
   useEffect(() => {
     let ignore = false;
-    function fetchState() {
-      fetch(apiUrl)
-        .then(res => res.json())
-        .then(data => {
+    let timer: number | undefined;
+
+    const fetchState = () => {
+      fetch(apiUrl, { method: "GET" })
+        .then((res) => {
+          if (!res.ok) throw new Error(String(res.status));
+          return res.json();
+        })
+        .then((data) => {
           if (!ignore && typeof data.position === "number") {
             setPositionState(data.position);
           }
         })
-        .catch(() => {});
-    }
+        .catch(() => {
+          /* можно залогировать */
+        })
+        .finally(() => {
+          // опрос каждые 4 секунды
+          timer = window.setTimeout(fetchState, 4000);
+        });
+    };
+
     fetchState();
-    const interval = setInterval(fetchState, 4000);
-    return () => { ignore = true; clearInterval(interval); };
+    return () => {
+      ignore = true;
+      if (timer) window.clearTimeout(timer);
+    };
   }, [apiUrl]);
 
-  // установка жалюзи
   const setBlinds = async (next: number) => {
     setLoading(true);
     try {
@@ -40,12 +51,14 @@ export function useBlindsPosition(zone: Zone) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ position: next }),
       });
+      if (!resp.ok) throw new Error(String(resp.status));
       const json = await resp.json();
       if (typeof json.position === "number") setPositionState(json.position);
-    } catch (e) {
-      // можно показать ошибку
+    } catch {
+      /* показать тост/уведомление при желании */
+    } finally {
+      setTimeout(() => setLoading(false), 300);
     }
-    setTimeout(() => setLoading(false), 500);
   };
 
   return { position, setBlinds, loading };

@@ -235,6 +235,7 @@ app.post("/api/relay/send-multiple", async (req, res) => {
   res.json({ sent: results });
 });
 
+app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 
 

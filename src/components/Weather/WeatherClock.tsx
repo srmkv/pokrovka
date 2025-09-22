@@ -1,16 +1,16 @@
 import React from "react";
-import { WeatherIconMap } from "./WeatherIconMap"; // путь свой!
-import { conditionMap } from "./conditionMap";     // путь свой!
-import Clock from "./Clock";                       // путь свой!
+import { iconByWmo } from "./WeatherIconMap"; // новый мэппинг WMO → имя файла
+import Clock from "./Clock";
 
+// теперь condition не нужен — используем wcode
 type HourData = {
-  hour: string;
-  temp: number;
-  condition: string;
+  hour: string;           // "00".."23"
+  temp: number;           // °C
+  wcode: number | null;   // WMO weather code
 };
 
 interface WeatherClockProps {
-  hours: HourData[];
+  hours: HourData[];      // 24 часа, начиная с текущего
 }
 
 const CLOCK_SIZE = 545;
@@ -52,8 +52,8 @@ const WeatherClock: React.FC<WeatherClockProps> = ({ hours }) => {
 
           const isCurrent = Number(h.hour) === currentHour;
 
-          const iconKey = conditionMap[h.condition] || "Shower";
-          const iconSrc = WeatherIconMap[iconKey] || WeatherIconMap["Shower"];
+          // теперь берём иконку по WMO
+          const iconSrc = `/images/${iconByWmo(h.wcode)}`;
 
           return (
             <g key={idx}>
@@ -64,32 +64,35 @@ const WeatherClock: React.FC<WeatherClockProps> = ({ hours }) => {
                 width={isCurrent ? 64 : 44}
                 height={isCurrent ? 64 : 44}
               >
-                <div style={{
-                  opacity: isCurrent ? 1 : 0.7,
-                  width: isCurrent ? 60 : 40,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: "all 0.25s"
-                }}>
+                <div
+                  style={{
+                    opacity: isCurrent ? 1 : 0.7,
+                    width: isCurrent ? 60 : 40,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "all 0.25s",
+                  }}
+                >
                   <img
                     src={iconSrc}
-                    alt={h.condition}
+                    alt="weather"
                     style={{
                       width: isCurrent ? 60 : 40,
-                      
-                      
-                      transition: "all 0.2s"
+                      transition: "all 0.2s",
                     }}
                   />
                 </div>
               </foreignObject>
+
+              {/* Температура */}
               {/* Температура */}
               <text
                 x={tx}
-                y={ty + (isCurrent ? 7 : 0)}
+                y={ty}
                 textAnchor="middle"
-                alignmentBaseline="middle"
+                dominantBaseline="middle"
+                dy={isCurrent ? ".35em" : "0"}
                 fontSize={isCurrent ? 30 : 18}
                 fontWeight={isCurrent ? 900 : 600}
                 fill={isCurrent ? "#fff" : "#ffd"}
@@ -97,17 +100,20 @@ const WeatherClock: React.FC<WeatherClockProps> = ({ hours }) => {
                   pointerEvents: "none",
                   userSelect: "none",
                   filter: isCurrent ? "drop-shadow(0 0 4px #4fc3f7)" : undefined,
-                  transition: "all 0.2s"
+                  transition: "all 0.2s",
                 }}
+                aria-label={`Температура ${h.temp}°`}
               >
                 {h.temp > 0 ? `+${h.temp}` : h.temp}
               </text>
+
               {/* Время часа */}
               <text
                 x={timex}
                 y={timey}
                 textAnchor="middle"
-                alignmentBaseline="middle"
+                dominantBaseline="middle"
+                dy=".35em"
                 fontSize={isCurrent ? 30 : 18}
                 fontWeight={isCurrent ? 700 : 500}
                 fill={isCurrent ? "#4fc3f7" : "#888"}
@@ -116,15 +122,18 @@ const WeatherClock: React.FC<WeatherClockProps> = ({ hours }) => {
                   userSelect: "none",
                   letterSpacing: isCurrent ? 2 : 0,
                   textShadow: isCurrent ? "0 0 8px #1a223c" : undefined,
-                  transition: "all 0.2s"
+                  transition: "all 0.2s",
                 }}
+                aria-label={`Час ${h.hour}`}
               >
                 {h.hour}
               </text>
+
             </g>
           );
         })}
-        {/* Центр — всегда актуальное время через компонент Clock */}
+
+        {/* Центр — актуальное время */}
         <circle cx={CENTER} cy={CENTER} r={80} fill="#232445" />
         <g>
           <Clock fontSize={38} />
