@@ -1,84 +1,181 @@
 #include <SPI.h>
 #include <Ethernet.h>
 
-/* ---------- Пользовательские настройки сети ---------- */
-// Уникальный MAC (можно любой, но не конфликтующий в сети)
-byte MAC[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0x12, 0x34 };
+/* ---------- СЕТЬ (Ethernet) — СТАТИЧЕСКИЙ АДРЕС ---------- */
+// Уникальный MAC (любой, лишь бы не конфликтовал в сети)
+byte MAC[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0x22, 0x02 };
 
-// Статический IP (fallback), если DHCP не выдаст адрес
-IPAddress STATIC_IP(192, 168, 0, 200);
+// Жёстко заданные параметры сети (без DHCP)
+IPAddress STATIC_IP(192, 168, 0, 105);   // <-- ТВОЙ СТАТИЧЕСКИЙ IP ДЛЯ ARDUINO2
 IPAddress GATEWAY  (192, 168, 0, 1);
 IPAddress SUBNET   (255, 255, 255, 0);
 IPAddress DNS      (192, 168, 0, 1);
 
-/* ---------- Пины и параметры детекции ---------- */
-const uint8_t SENSOR_PIN = 2;     // вход от оптопары (инверсная логика, используем INPUT_PULLUP)
+/* ---------- КАНАЛЫ ОПТОПАРЫ ----------
+   Описываем, какие пины читаем и какими ID они будут в API/пуше.
+   Входы — инверсная логика (INPUT_PULLUP): LOW = есть сеть/лампа горит.
+*/
+struct ChannelCfg {
+  uint8_t pin;
+  const char* id; // "opt1", "opt2", ...
+};
 
-// Для AC-оптопары (H11AA1) делаем окно усреднения:
-const unsigned long WINDOW_MS = 300;   // насколько долго «накапливаем» выборки
-const uint16_t      MIN_LOW_COUNT = 10; // порог LOW-сэмплов за окно, чтобы считать «лампа ВКЛ»
+ChannelCfg CHANNELS[] = {
+  {2,  "opt1"},
+  {3,  "opt2"},
+  {4,  "opt3"},
+  // добавляй при необходимости: {5,"opt4"}, {6,"opt5"}, ...
+};
+const uint8_t CHANNEL_COUNT = sizeof(CHANNELS) / sizeof(CHANNELS[0]);
 
-// Антидребезг финального состояния (защита от фликера):
-const unsigned long STABLE_MS = 250;
+/* ---------- ПАРАМЕТРЫ ДЕТЕКЦИИ ---------- */
+const unsigned long WINDOW_MS      = 300;  // окно усреднения
+const uint16_t      MIN_LOW_COUNT  = 10;   // порог LOW-сэмплов за окно => "лампа ВКЛ"
+const unsigned long STABLE_MS      = 250;  // антифликер: сколько держится изменение
 
-/* ---------- Веб-сервер ---------- */
+/* ---------- PUSH-настройки (адрес сервера с Node.js) ----------
+   Это адрес твоего сервера в локалке (NanoPi и т.п.), где крутится порт 3010.
+*/
+IPAddress SERVER_IP(192, 168, 0, 108);   // <-- ВСТАВЬ IP СЕРВЕРА (NanoPi/ПК)
+const uint16_t SERVER_PORT = 3010;      // порт API
+const char* TOKEN = "change_me";        // должен совпадать с TOKEN на сервере
+
+// true  = отправляем одним bulk-запросом несколько каналов
+// false = шлём по одному GET’ом /api/lamp/:id/state?lamp=...
+const bool USE_BULK_PUSH = true;
+
+/* ---------- HTTP-сервер на Arduino2 ---------- */
 EthernetServer server(80);
 
-/* ---------- Внутренние переменные ---------- */
-unsigned long windowStartMs = 0;
-uint16_t lowCountInWindow = 0;
-uint16_t sampleCountInWindow = 0;
+/* ---------- Состояние по каждому каналу ---------- */
+struct ChannelState {
+  unsigned long windowStartMs;
+  uint16_t lowCountInWindow;
+  uint16_t sampleCountInWindow;
 
-bool lampOnComputed = false;       // результат вычисления за окно
-bool lampOnStable = false;         // «устойчивое» состояние для вывода
-bool lastLampOnStable = false;
-unsigned long lastChangeMs = 0;
+  bool computed;
+  bool stable;
+  bool lastStable;
 
+  unsigned long lastChangeMs;
+
+  bool lastPushed;
+  bool hasPushedOnce;
+};
+
+ChannelState CH_STATE[CHANNEL_COUNT];
+
+/* ---------- ВСПОМОГАТЕЛЬНОЕ ---------- */
 void printIp(const IPAddress& ip) {
-  for (int i = 0; i < 4; i++) {
-    Serial.print(ip[i]);
-    if (i < 3) Serial.print('.');
-  }
+  for (int i=0;i<4;i++){ Serial.print(ip[i]); if(i<3) Serial.print('.'); }
 }
 
-void startEthernet() {
-  Serial.print("Ethernet init (DHCP)...");
-  if (Ethernet.begin(MAC) == 0) {
-    Serial.println("DHCP failed, using static IP.");
-    Ethernet.begin(MAC, STATIC_IP, DNS, GATEWAY, SUBNET);
-  } else {
-    Serial.println("OK (DHCP).");
+void startEthernetStatic() {
+  Serial.println(F("Ethernet init (STATIC)..."));
+  Ethernet.begin(MAC, STATIC_IP, DNS, GATEWAY, SUBNET);
+
+  // (не обязательно, но полезно) ждём линк до 3 сек
+  unsigned long t0 = millis();
+  while (Ethernet.linkStatus() == LinkOFF && millis() - t0 < 3000) {
+    delay(100);
   }
 
-  Serial.print("IP: ");
-  printIp(Ethernet.localIP());
-  Serial.print("  GW: ");
-  printIp(Ethernet.gatewayIP());
-  Serial.print("  DNS: ");
-  printIp(Ethernet.dnsServerIP());
-  Serial.print("  MASK: ");
-  printIp(Ethernet.subnetMask());
-  Serial.println();
+  Serial.print(F("IP: "));     printIp(Ethernet.localIP());   Serial.println();
+  Serial.print(F("GW: "));     printIp(Ethernet.gatewayIP()); Serial.println();
+  Serial.print(F("DNS: "));    printIp(Ethernet.dnsServerIP()); Serial.println();
+  Serial.print(F("MASK: "));   printIp(Ethernet.subnetMask()); Serial.println();
 
-  delay(200);
+  delay(120);
   server.begin();
-  Serial.println("HTTP server started on port 80");
+  Serial.println(F("HTTP server started on port 80 (static IP)"));
 }
 
-/* ---------- Формирование ответа ---------- */
-void sendHttpHeader(EthernetClient &client, const char* contentType, bool noCache = true) {
-  client.println(F("HTTP/1.1 200 OK"));
-  client.print  (F("Content-Type: "));
-  client.println(contentType);
-  if (noCache) {
-    client.println(F("Cache-Control: no-store, no-cache, must-revalidate"));
-    client.println(F("Pragma: no-cache"));
-    client.println(F("Expires: 0"));
+/* ---------- НИЗКОУРОВНЕВЫЙ HTTP КЛИЕНТ ДЛЯ PUSH ---------- */
+bool httpGET(const String& path) {
+  EthernetClient c;
+  if (!c.connect(SERVER_IP, SERVER_PORT)) return false;
+
+  c.print("GET "); c.print(path); c.println(" HTTP/1.1");
+  c.print("Host: "); c.print(SERVER_IP); c.print(":"); c.println(SERVER_PORT);
+  c.println("Connection: close");
+  c.println();
+
+  // дождёмся конца заголовков
+  unsigned long t0 = millis();
+  while (c.connected() && (millis() - t0 < 1500)) {
+    if (c.find((char*)"\r\n\r\n")) break;
   }
+  while (c.available()) c.read();
+  c.stop();
+  return true;
+}
+
+bool httpPOST_JSON(const String& path, const String& json) {
+  EthernetClient c;
+  if (!c.connect(SERVER_IP, SERVER_PORT)) return false;
+
+  c.print("POST "); c.print(path); c.println(" HTTP/1.1");
+  c.print("Host: "); c.print(SERVER_IP); c.print(":"); c.println(SERVER_PORT);
+  c.println("Content-Type: application/json");
+  c.print("Content-Length: "); c.println(json.length());
+  c.println("Connection: close");
+  c.println();
+  c.print(json);
+
+  unsigned long t0 = millis();
+  while (c.connected() && (millis() - t0 < 2000)) {
+    if (c.find((char*)"\r\n\r\n")) break;
+  }
+  while (c.available()) c.read();
+  c.stop();
+  return true;
+}
+
+/* ---------- PUSH ---------- */
+void pushSingle(const char* id, bool lamp) {
+  String path = "/api/lamp/";
+  path += id;
+  path += "/state?lamp="; path += (lamp ? "1" : "0");
+  path += "&token="; path += TOKEN;
+  httpGET(path);
+}
+
+void pushBulkChanged() {
+  String json = "{\"devices\":{";
+  bool first = true;
+  for (uint8_t i=0; i<CHANNEL_COUNT; i++) {
+    if (!CH_STATE[i].hasPushedOnce || CH_STATE[i].lastPushed != CH_STATE[i].stable) {
+      if (!first) json += ",";
+      json += "\"";
+      json += CHANNELS[i].id;
+      json += "\":";
+      json += (CH_STATE[i].stable ? "true" : "false");
+      first = false;
+    }
+  }
+  json += "}}";
+  if (first) return; // нечего слать
+
+  String path = "/api/lamp/bulk/state?token=";
+  path += TOKEN;
+  if (httpPOST_JSON(path, json)) {
+    for (uint8_t i=0; i<CHANNEL_COUNT; i++) {
+      if (!CH_STATE[i].hasPushedOnce || CH_STATE[i].lastPushed != CH_STATE[i].stable) {
+        CH_STATE[i].lastPushed = CH_STATE[i].stable;
+        CH_STATE[i].hasPushedOnce = true;
+      }
+    }
+  }
+}
+
+/* ---------- ВЕБ-ИНТЕРФЕЙС (минимум) ---------- */
+void sendHttpHeader(EthernetClient &client, const char* contentType) {
+  client.println(F("HTTP/1.1 200 OK"));
+  client.print  (F("Content-Type: ")); client.println(contentType);
+  client.println(F("Cache-Control: no-store"));
   client.println(F("Connection: close"));
   client.println();
 }
-
 void sendNotFound(EthernetClient &client) {
   client.println(F("HTTP/1.1 404 Not Found"));
   client.println(F("Content-Type: text/plain; charset=utf-8"));
@@ -86,117 +183,80 @@ void sendNotFound(EthernetClient &client) {
   client.println();
   client.println(F("404 Not Found"));
 }
-
 void handleRoot(EthernetClient &client) {
   sendHttpHeader(client, "text/html; charset=utf-8");
-
-  // лёгкая страница с автообновлением статуса через fetch /api/status
-  client.println(F("<!doctype html><html><head><meta charset='utf-8'>"
-                   "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-                   "<title>Lamp monitor</title>"
-                   "<style>"
-                   "body{font-family:sans-serif;margin:2rem;background:#f6f6f6;color:#222}"
-                   ".card{max-width:520px;margin:auto;background:#fff;border-radius:12px;padding:24px;box-shadow:0 6px 24px rgba(0,0,0,.08)}"
-                   ".state{font-size:2rem;margin:.5rem 0}"
-                   ".on{color:#0a7a2f}"
-                   ".off{color:#b00020}"
-                   ".pill{display:inline-block;border-radius:999px;padding:.2rem .8rem;font-size:.9rem;background:#eee}"
-                   ".grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}"
-                   "small{color:#666}"
-                   "button{padding:.6rem 1rem;border:0;border-radius:8px;cursor:pointer}"
-                   "</style>"
-                   "</head><body><div class='card'>"
-                   "<h2>Состояние лампы (по оптопаре)</h2>"
-                   "<div id='state' class='state'>—</div>"
-                   "<div class='grid'>"
-                   "<div><small>Устойчивое:</small><div id='stable' class='pill'>—</div></div>"
-                   "<div><small>Сырые LOW/общее:</small><div id='raw' class='pill'>—</div></div>"
-                   "</div>"
-                   "<div style='margin-top:16px'>"
-                   "<small>Обновление каждые 500 мс. Эндпоинт: <code>/api/status</code></small>"
-                   "</div>"
-                   "<script>"
-                   "async function upd(){"
-                     "try{"
-                       "const r=await fetch('/api/status',{cache:'no-store'});"
-                       "const j=await r.json();"
-                       "document.getElementById('state').textContent=j.lamp?'Лампа ВКЛ':'Лампа ВЫКЛ';"
-                       "document.getElementById('state').className='state '+(j.lamp?'on':'off');"
-                       "document.getElementById('stable').textContent=j.stable?'стабильное':'нестабильное';"
-                       "document.getElementById('raw').textContent=j.low_count+'/'+j.samples;"
-                     "}catch(e){console.log(e)}"
-                   "}"
-                   "upd(); setInterval(upd,500);"
-                   "</script>"
-                   "</div></body></html>"));
+  client.println(F("<!doctype html><meta charset='utf-8'><title>Opto</title>"));
+  client.println(F("<pre>OK (static IP).\nGET /api/status-all\nGET /api/status?ch=opt1</pre>"));
 }
-
-void handleApiStatus(EthernetClient &client) {
+void handleApiStatusAll(EthernetClient &client) {
   sendHttpHeader(client, "application/json; charset=utf-8");
-  client.print(F("{\"lamp\":"));
-  client.print(lampOnStable ? F("true") : F("false"));
-  client.print(F(",\"stable\":"));
-  client.print((millis() - lastChangeMs) >= STABLE_MS ? F("true") : F("false"));
-  client.print(F(",\"low_count\":"));
-  client.print(lowCountInWindow);
-  client.print(F(",\"samples\":"));
-  client.print(sampleCountInWindow);
-  client.print(F(",\"window_ms\":"));
-  client.print(WINDOW_MS);
-  client.println(F("}"));
+  client.print("{");
+  for (uint8_t i=0;i<CHANNEL_COUNT;i++) {
+    if (i) client.print(",");
+    client.print("\""); client.print(CHANNELS[i].id); client.print("\":");
+    client.print(CH_STATE[i].stable ? "true" : "false");
+  }
+  client.println("}");
+}
+void handleApiStatusOne(EthernetClient &client, const char* ch) {
+  int found = -1;
+  for (uint8_t i=0;i<CHANNEL_COUNT;i++) if (strcmp(CHANNELS[i].id, ch) == 0) { found = i; break; }
+  if (found < 0) { sendNotFound(client); return; }
+
+  ChannelState &S = CH_STATE[found];
+  sendHttpHeader(client, "application/json; charset=utf-8");
+  client.print("{\"lamp\":"); client.print(S.stable ? "true" : "false");
+  client.print(",\"stable\":"); client.print( (millis()-S.lastChangeMs) >= STABLE_MS ? "true":"false" );
+  client.print(",\"low_count\":"); client.print(S.lowCountInWindow);
+  client.print(",\"samples\":"); client.print(S.sampleCountInWindow);
+  client.print(",\"window_ms\":"); client.print(WINDOW_MS);
+  client.println("}");
 }
 
+/* ---------- РОУТИНГ ---------- */
 void handleClient() {
   EthernetClient client = server.available();
   if (!client) return;
 
-  // читаем первую строку запроса (метод + путь)
-  char reqLine[128];
-  size_t idx = 0;
-  unsigned long t0 = millis();
-  bool gotLine = false;
+  char reqLine[160]; size_t idx = 0;
+  unsigned long t0 = millis(); bool gotLine = false;
 
-  while (client.connected() && (millis() - t0 < 1000)) {
+  while (client.connected() && (millis()-t0 < 1000)) {
     if (client.available()) {
       char c = client.read();
-      if (c == '\r') continue;
-      if (c == '\n') { gotLine = true; break; }
-      if (idx < sizeof(reqLine) - 1) reqLine[idx++] = c;
+      if (c=='\r') continue;
+      if (c=='\n') { gotLine = true; break; }
+      if (idx < sizeof(reqLine)-1) reqLine[idx++] = c;
     }
   }
   reqLine[idx] = 0;
 
-  // дочитываем и отбрасываем заголовки
-  while (client.connected() && (millis() - t0 < 1200)) {
-    if (client.available()) {
-      char c = client.read();
-      if (c == '\n') {
-        // пустая строка — конец заголовков
-        if (client.peek() == '\n') break;
-      }
-    } else {
-      break;
-    }
+  // скидываем заголовки
+  while (client.connected() && (millis()-t0 < 1200)) {
+    if (client.available()) { if (client.read()=='\n') break; } else break;
   }
 
-  if (!gotLine) {
-    sendNotFound(client);
-    client.stop();
-    return;
-  }
+  if (!gotLine) { sendNotFound(client); client.stop(); return; }
 
-  // очень простой роутинг
-  // ожидаем строку вида: "GET /path HTTP/1.1"
-  if (strncmp(reqLine, "GET ", 4) == 0) {
+  if (strncmp(reqLine,"GET ",4)==0) {
     const char* path = reqLine + 4;
-    const char* sp = strchr(path, ' ');
+    const char* sp = strchr(path,' ');
     size_t pathLen = sp ? (size_t)(sp - path) : strlen(path);
 
-    // сравниваем пути
-    if (pathLen == 1 && path[0] == '/') {
+    if (pathLen==1 && path[0]=='/') {
       handleRoot(client);
-    } else if (pathLen == 11 && strncmp(path, "/api/status", 11) == 0) {
-      handleApiStatus(client);
+    } else if (pathLen >= 15 && strncmp(path, "/api/status-all", 15) == 0) {
+  handleApiStatusAll(client);
+
+    } else if (pathLen>=11 && strncmp(path,"/api/status",11)==0) {
+      const char* q = strchr(path,'?'); const char* ch = NULL;
+      if (q) {
+        if (strncmp(q, "?ch=",4)==0) ch = q+4;
+        else { const char* p = strstr(q,"ch="); if (p) ch = p+3; }
+      }
+      char buf[16]; buf[0]=0;
+      if (ch) { size_t i=0; while (*ch && *ch!=' ' && *ch!='&' && i<sizeof(buf)-1) buf[i++]=*ch++; buf[i]=0; }
+      if (buf[0]) handleApiStatusOne(client, buf); else sendNotFound(client);
     } else {
       sendNotFound(client);
     }
@@ -208,62 +268,80 @@ void handleClient() {
   client.stop();
 }
 
-/* ---------- Логика детекции ---------- */
-void updateWindowedDetection() {
-  // накапливаем сэмплы в окне
-  bool level = digitalRead(SENSOR_PIN); // HIGH/LOW (инверсная логика)
-  sampleCountInWindow++;
-  if (level == LOW) lowCountInWindow++;
+/* ---------- ДЕТЕКЦИЯ ---------- */
+void updateOne(ChannelState &S, uint8_t pin) {
+  bool level = digitalRead(pin); // INPUT_PULLUP: LOW = активность сети
+  S.sampleCountInWindow++;
+  if (level == LOW) S.lowCountInWindow++;
 
   unsigned long now = millis();
-  if (now - windowStartMs >= WINDOW_MS) {
-    // вычисляем «лампа ON» по порогу LOW-сэмплов
-    bool lamp = (lowCountInWindow >= MIN_LOW_COUNT);
+  if (now - S.windowStartMs >= WINDOW_MS) {
+    bool lamp = (S.lowCountInWindow >= MIN_LOW_COUNT);
 
-    // антифликер: меняем state только если держится >= STABLE_MS
-    if (lamp != lampOnStable) {
-      if (now - lastChangeMs >= STABLE_MS) {
-        lampOnStable = lamp;
-        lastChangeMs = now;
+    if (lamp != S.stable) {
+      if (now - S.lastChangeMs >= STABLE_MS) {
+        S.stable = lamp;
+        S.lastChangeMs = now;
       }
     } else {
-      // состояние не изменилось — просто фиксируем время
-      lastChangeMs = now;
+      S.lastChangeMs = now;
     }
 
-    lampOnComputed = lamp;
-
-    // сбрасываем окно
-    windowStartMs = now;
-    lowCountInWindow = 0;
-    sampleCountInWindow = 0;
-
-    // для отладки в Serial при изменении
-    if (lampOnStable != lastLampOnStable) {
-      lastLampOnStable = lampOnStable;
-      Serial.println(lampOnStable ? F("Lamp ON (stable)") : F("Lamp OFF (stable)"));
-    }
+    S.computed = lamp;
+    S.windowStartMs = now;
+    S.lowCountInWindow = 0;
+    S.sampleCountInWindow = 0;
   }
 }
 
+/* ---------- SETUP / LOOP ---------- */
 void setup() {
   Serial.begin(9600);
-  while (!Serial) { ; }
+  while(!Serial){;}
 
-  pinMode(SENSOR_PIN, INPUT_PULLUP); // инверсная логика: LOW = активный
+  for (uint8_t i=0;i<CHANNEL_COUNT;i++) {
+    pinMode(CHANNELS[i].pin, INPUT_PULLUP);
+    ChannelState &S = CH_STATE[i];
+    S.windowStartMs = millis();
+    S.lowCountInWindow = 0;
+    S.sampleCountInWindow = 0;
+    S.computed = false;
+    S.stable = false;
+    S.lastStable = false;
+    S.lastChangeMs = millis();
+    S.lastPushed = false;
+    S.hasPushedOnce = false;
+  }
 
-  // Ethernet
-  startEthernet();
-
-  // окно усреднения
-  windowStartMs = millis();
-  lastChangeMs = millis();
+  // Статический Ethernet (без DHCP)
+  startEthernetStatic();
 }
 
-void loop() {
-  // основная логика детекции
-  updateWindowedDetection();
+unsigned long lastBulkTry = 0;
 
-  // обслуживание HTTP клиентов
+void loop() {
+  for (uint8_t i=0;i<CHANNEL_COUNT;i++) updateOne(CH_STATE[i], CHANNELS[i].pin);
+
+  if (USE_BULK_PUSH) {
+    bool changed = false;
+    for (uint8_t i=0;i<CHANNEL_COUNT;i++) {
+      if (CH_STATE[i].stable != CH_STATE[i].lastStable) { changed = true; CH_STATE[i].lastStable = CH_STATE[i].stable; }
+    }
+    unsigned long now = millis();
+    if (changed || (now - lastBulkTry >= 250)) {
+      pushBulkChanged();
+      lastBulkTry = now;
+    }
+  } else {
+    for (uint8_t i=0;i<CHANNEL_COUNT;i++) {
+      if (CH_STATE[i].stable != CH_STATE[i].lastStable) {
+        CH_STATE[i].lastStable = CH_STATE[i].stable;
+        pushSingle(CHANNELS[i].id, CH_STATE[i].stable);
+        CH_STATE[i].lastPushed = CH_STATE[i].stable;
+        CH_STATE[i].hasPushedOnce = true;
+      }
+    }
+  }
+
   handleClient();
 }
