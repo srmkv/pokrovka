@@ -8,6 +8,8 @@ export type WeatherPoint = {
   apparentTC?: number | null;   // apparent_temperature
   rh?: number | null;           // relative_humidity_2m, %
   pop?: number | null;          // precipitation_probability, %
+  precipMm?: number | null;     // precipitation, мм
+  uvIndex?: number | null;      // uv index
   wcode?: number | null;        // weathercode (WMO)
   windMs?: number | null;       // wind_speed_10m (м/с)
   windDirDeg?: number | null;   // wind_direction_10m (градусы)
@@ -75,6 +77,8 @@ export function useOpenMeteo(lat: number, lon: number, hours = 48, days = 7) {
         "apparent_temperature",
         "relative_humidity_2m",
         "precipitation_probability",
+        "precipitation",
+        "uv_index",
         "weathercode",
         "wind_speed_10m",
         "wind_direction_10m",
@@ -132,6 +136,8 @@ export function useOpenMeteo(lat: number, lon: number, hours = 48, days = 7) {
               apparentTC: num(j.hourly.apparent_temperature?.[i]),
               rh: num(j.hourly.relative_humidity_2m?.[i]),
               pop: num(j.hourly.precipitation_probability?.[i]),
+              precipMm: num(j.hourly.precipitation?.[i]),
+              uvIndex: num(j.hourly.uv_index?.[i]),
               wcode: num(j.hourly.weathercode?.[i]),
               windMs: num(j.hourly.wind_speed_10m?.[i]),
               windDirDeg: num(j.hourly.wind_direction_10m?.[i]),

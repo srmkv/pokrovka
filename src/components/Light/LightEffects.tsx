@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useUiPopup } from "../../contexts/UiPopupContext";
 
 // Лейблы и значения эффектов (должны совпадать с бэком/Arduino)
 const effectNames = [
@@ -28,6 +29,7 @@ const API_BASE = (process.env.REACT_APP_API_BASE || "/api").replace(/\/$/, "");
 const effectsUrl = `${API_BASE}/light/effects`;
 
 const LightEffects: React.FC = () => {
+  const { showAlert } = useUiPopup();
   const [loadingIdx, setLoadingIdx] = useState<number | null>(null);
   const [active, setActive] = useState<number | null>(null);
 
@@ -57,29 +59,29 @@ const LightEffects: React.FC = () => {
       if (!resp.ok) {
         let msg = "неизвестная ошибка";
         try { msg = (await resp.json()).error || msg; } catch {}
-        alert("Ошибка: " + msg);
+        showAlert({ title: "Не удалось переключить эффект", message: msg, tone: "error" });
       } else {
         setActive(idx);
       }
     } catch {
-      alert("Ошибка отправки команды");
+      showAlert({ title: "Ошибка отправки команды", message: "Не удалось отправить команду на переключение эффекта.", tone: "error" });
     } finally {
       setLoadingIdx(null);
     }
   };
 
   return (
-    <div className="bg-[#22243c] rounded-xl p-6 flex flex-col items-center mb-8 w-full">
-      <h4 className="text-lg font-semibold mb-4">Эффекты подсветки</h4>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+    <div className="bg-[#22243c] rounded-xl p-5 h-full flex flex-col items-center w-full">
+      <h4 className="text-base font-semibold mb-3">Эффекты подсветки</h4>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full flex-1 content-start">
         {effectNames.map((name, idx) => (
           <button
             key={name}
             onClick={() => setEffect(idx)}
-            className={`py-3 px-4 rounded-lg font-medium text-gray-150 text-base transition-all duration-150 border-2
+            className={`py-2.5 px-4 rounded-lg font-medium text-gray-150 text-sm transition-all duration-150 border-2
               ${active === idx ? "bg-blue-700 border-blue-400 shadow-xl" : "bg-[#1a1b2d] border-[#232445]"}
               hover:bg-blue-900 hover:border-blue-500 disabled:opacity-60`}
-            style={{ minWidth: 140, letterSpacing: 0.2 }}
+            style={{ minWidth: 120, letterSpacing: 0.1 }}
             disabled={loadingIdx !== null}
           >
             {loadingIdx === idx ? "..." : name}

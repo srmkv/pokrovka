@@ -7,7 +7,7 @@ interface DishwasherSvgProps {
 }
 
 const DishwasherSvg: React.FC<DishwasherSvgProps> = ({
-  color = "#38bdf8", // голубой по умолчанию
+  color = "#7A5A3A", // тёмно-бежевый по умолчанию
   width = 90,
   height = 120,
 }) => (

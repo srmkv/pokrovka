@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useUiPopup } from "../../contexts/UiPopupContext";
 
 // Универсальный BASE — только префикс, без host/port
 const API_BASE = (process.env.REACT_APP_API_BASE || "/api").replace(/\/$/, "");
@@ -22,6 +23,7 @@ const LightSlider: React.FC<LightSliderProps> = ({
   initialG = 255,
   initialB = 255,
 }) => {
+  const { showAlert } = useUiPopup();
   const [brightness, setBrightness] = useState(initialBrightness);
   const [r, setR] = useState(initialR);
   const [g, setG] = useState(initialG);
@@ -64,10 +66,10 @@ const LightSlider: React.FC<LightSliderProps> = ({
           const j2 = !r2.ok ? await r2.json() : null;
           msg = (j1?.error || j2?.error) ?? msg;
         } catch {}
-        alert("Ошибка: " + msg);
+        showAlert({ title: "Не удалось изменить подсветку", message: msg, tone: "error" });
       }
     } catch {
-      alert("Ошибка отправки команды");
+      showAlert({ title: "Ошибка отправки команды", message: "Не удалось отправить команду на изменение подсветки.", tone: "error" });
     } finally {
       setLoading(false);
     }
@@ -78,8 +80,8 @@ const LightSlider: React.FC<LightSliderProps> = ({
   const shadowRadius = 20 + 30 * (brightness / 100);
 
   return (
-    <div className="bg-[#22243c] rounded-xl p-6 flex flex-col items-center">
-      <h4 className="text-lg font-semibold mb-4">Регулятор цвета ленты</h4>
+    <div className="bg-[#22243c] rounded-xl p-5 h-full flex flex-col items-center justify-between">
+      <h4 className="text-base font-semibold mb-3">Регулятор цвета ленты</h4>
 
       <div className="flex flex-col items-center mb-3 w-full">
         <div
@@ -99,7 +101,7 @@ const LightSlider: React.FC<LightSliderProps> = ({
       </div>
 
       {/* Ползунки для R/G/B */}
-      <div className="w-full mb-4">
+      <div className="w-full mb-3">
         <label className="block text-xs mb-1 text-red-300">Красный: <b>{r}</b></label>
         <input type="range" min={0} max={255} value={r}
           onChange={(e) => setR(Number(e.target.value))}
@@ -115,7 +117,7 @@ const LightSlider: React.FC<LightSliderProps> = ({
       </div>
 
       {/* Яркость */}
-      <div className="w-full mb-4 flex flex-col items-center">
+      <div className="w-full mb-3 flex flex-col items-center">
         <label className="block text-sm mb-1">Яркость: <b>{brightness}%</b></label>
         <input type="range" min={0} max={100} value={brightness}
           onChange={(e) => setBrightness(Number(e.target.value))}
@@ -123,7 +125,7 @@ const LightSlider: React.FC<LightSliderProps> = ({
       </div>
 
       <button
-        className={`py-3 px-4 rounded-lg font-medium text-gray-150 text-base transition-all duration-150 border-2
+        className={`py-2.5 px-4 rounded-lg font-medium text-gray-150 text-base transition-all duration-150 border-2
                     bg-[#1a1b2d] border-[#232445] hover:bg-blue-900 hover:border-blue-500
                     disabled:opacity-60 mt-2`}
         disabled={loading}

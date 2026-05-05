@@ -1,23 +1,33 @@
+import { useEffect, useState } from "react";
 import SideBar from "./components/SideBar";
 import MainContent from "./components/MainContent";
 import NotificationCenter from "./components/NotificationCenter";
-import { LeakSensorsProvider } from "./components/Water/LeakSensorsContext";
+import { UiPopupProvider } from "./contexts/UiPopupContext";
 const App = () => {
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    const saved = localStorage.getItem("ui-theme");
+    return saved === "light" ? "light" : "dark";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("ui-theme", theme);
+  }, [theme]);
+
   return (
-    <LeakSensorsProvider>
-    <div className="flex w-full h-screen">
+    <UiPopupProvider>
+    <div className={`app-shell flex w-full h-screen ${theme === "light" ? "theme-light" : "theme-dark"}`}>
       {/* Сайдбар с фоном */}
-      <aside className="max-w-[430px] min-w-[320px] h-screen bg-[#100E1D]">
+      <aside className={`app-sidebar max-w-[430px] min-w-[320px] h-screen ${theme === "light" ? "bg-[#eef3f8]" : "bg-[#100E1D]"}`}>
         <SideBar />
       </aside>
       {/* MainContent только с вертикальным скроллом и кастомным скроллом */}
-      <main className="flex-1 h-screen overflow-y-auto bg-[#181825] custom-scroll">
-        <MainContent />
+      <main className={`app-main flex-1 h-screen overflow-hidden custom-scroll ${theme === "light" ? "bg-[#f5f7fb]" : "bg-[#181825]"}`}>
+        <MainContent theme={theme} setTheme={setTheme} />
         <NotificationCenter />
     
       </main>
     </div>
-    </LeakSensorsProvider>
+    </UiPopupProvider>
   );
 };
 

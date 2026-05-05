@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 
-const LAMP_ON = "#ffe066";
-const LAMP_OFF = "#8c92a4";
+const LAMP_ON = "#D89B2B";
+const LAMP_OFF = "#7A634A";
 const RELAY_CODE = 11868689;
 
 // Универсальный BASE — только префикс, без host/port
@@ -11,13 +11,14 @@ const apiUrl = (p: string) => `${API_BASE}${p.startsWith("/") ? p : `/${p}`}`;
 function BulbSVG({ isOn }: { isOn: boolean }) {
   return (
     <svg
-      width={120}
-      height={120}
+      className="theme-adaptive-icon"
+      width={88}
+      height={88}
       viewBox="0 0 256 256"
       fill="none"
       style={{
         cursor: "pointer",
-        filter: isOn ? "drop-shadow(0 0 30px #ffe06688)" : undefined,
+        filter: isOn ? "drop-shadow(0 0 24px #d89b2b66)" : undefined,
         transition: "filter 0.2s"
       }}
     >
@@ -50,14 +51,14 @@ function BulbSVG({ isOn }: { isOn: boolean }) {
               cx={128}
               cy={130}
               r={80}
-              fill="#ffe06633"
+              fill="#d89b2b26"
               style={{ transition: "opacity 0.2s" }}
             />
             <circle
               cx={128}
               cy={130}
               r={102}
-              fill="#ffe06611"
+              fill="#d89b2b12"
               style={{ transition: "opacity 0.2s" }}
             />
           </>
@@ -140,11 +141,11 @@ const LampBulbPrihozhaya: React.FC = () => {
       <span style={{ color: isOn ? LAMP_ON : "#888" }}>Прихожая</span>
       <div
         style={{
-          marginTop: 12,
-          fontSize: 18,
+          marginTop: 6,
+          fontSize: 14,
           fontWeight: 600,
           color: isOn ? LAMP_ON : "#888",
-          letterSpacing: 1.5,
+          letterSpacing: 0.8,
           textShadow: isOn ? "0 2px 14px #ffe066aa" : undefined,
           transition: "color 0.18s",
         }}

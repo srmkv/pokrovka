@@ -99,3 +99,74 @@ To learn React, check out the [React documentation](https://reactjs.org/).
 </table>
 
 
+
+## Датчики протечки и реестр датчиков
+
+Статичные датчики теперь вынесены в файл `DEMO_ENDPOINT/sensors.json`.
+Фронт больше не рисует встроенные датчики отдельно: вкладка «Датчики», верхняя строка статуса и общий статус дома берут данные из `GET /api/sensors`.
+
+Основной endpoint для Arduino и аналогичных датчиков:
+
+```http
+POST /api/sensors/event
+Content-Type: application/json
+
+{
+  "deviceId": "washing-machine-leak-uno",
+  "alarm": true,
+  "rain": true,
+  "ao": 512,
+  "reason": "alarm_on"
+}
+```
+
+Команда удалённого сброса для конкретного устройства:
+
+```http
+GET /api/sensors/by-device/washing-machine-leak-uno/command
+```
+
+Сброс тревоги с сервера:
+
+```http
+POST /api/sensors/sensor-washing-machine/reset
+```
+
+Старые endpoint'ы `/api/washing-machine`, `/api/bathroom`, `/api/dishwasher` оставлены для совместимости, но внутри они теперь синхронизируются с единым реестром датчиков.
+
+## Добавлено в версии system-telegram-maintenance-fixed
+
+### Режим обслуживания датчика
+Во вкладке **Датчики → Список** у каждой карточки есть кнопки:
+- `Обслуж. 15 мин`
+- `Обслуж. 1 час`
+- `Вернуть в работу`
+
+Пока датчик в обслуживании, события протечки продолжают попадать в журнал, но не создают critical-аварию. Это удобно при проверке датчика, замене проводов или тесте протечки.
+
+### Telegram-уведомления
+Настройка находится во вкладке **Настройки → Telegram-уведомления**.
+Нужно указать:
+- Bot token
+- Chat ID
+- какие приоритеты отправлять: critical / warning / info
+
+Critical по умолчанию включён. После сохранения можно нажать **Отправить тест**.
+
+Backend endpoints:
+- `GET /api/settings/telegram`
+- `PUT /api/settings/telegram`
+- `POST /api/settings/telegram/test`
+
+### Вкладка «Система»
+Добавлена отдельная вкладка **Система** для NanoPi:
+- backend online
+- uptime backend
+- uptime NanoPi
+- CPU / RAM / Disk
+- температура CPU, если доступна через `/sys/class/thermal/...`
+- пути к `state.json` и `sensors.json`
+- общий статус дома и устройств
+
+Backend endpoint:
+- `GET /api/system/status`

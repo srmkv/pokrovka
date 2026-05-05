@@ -8,7 +8,7 @@ interface WashingMachineSvgProps {
 }
 
 const WashingMachineSvg: React.FC<WashingMachineSvgProps> = ({
-  color = "#3886C8",
+  color = "#7A5A3A",
   width = 100,
   height = 100,
   ringColor, // например, "#38bdf8" или "#e11d48" для анимаций
@@ -51,7 +51,7 @@ const WashingMachineSvg: React.FC<WashingMachineSvgProps> = ({
         cy="135"
         rx="44"
         ry="38"
-        fill="#38bdf8"
+        fill={color || "#7A5A3A"}
         opacity="0.36"
       />
       {/* Кнопки сверху */}

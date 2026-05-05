@@ -1,16 +1,14 @@
-// src/components/Weather/WeatherTab.tsx
 import React, { useMemo } from "react";
 import { useOpenMeteo } from "../../hooks/useOpenMeteo";
+import { useOpenMeteoAirQuality } from "../../hooks/useOpenMeteoAirQuality";
 import LargeCard from "../LargeCard";
 import SmallCard from "../SmallCard";
 import { iconByWmo } from "./WeatherIconMap";
 import SunProgressCard from "./SunCycleCard";
 
-// Нижний Новгород
 const LAT = 56.3269;
 const LON = 44.0075;
 
-// helpers
 const hpaToMm = (hpa?: number | null) =>
   hpa == null ? null : hpa * 0.750061683;
 
@@ -29,12 +27,21 @@ const getDayTitle = (isoDate: string, idx: number) => {
   return `${days[d.getDay()]}, ${d.getDate()} ${d.toLocaleString("ru", { month: "short" })}`;
 };
 
+const aqiLabel = (aqi?: number | null) => {
+  if (aqi == null) return "нет данных";
+  if (aqi <= 20) return "отлично";
+  if (aqi <= 40) return "хорошо";
+  if (aqi <= 60) return "умеренно";
+  if (aqi <= 80) return "средне";
+  if (aqi <= 100) return "плохо";
+  return "очень плохо";
+};
+
 const WeatherTab: React.FC = () => {
   const { hourly, daily, loading, error } = useOpenMeteo(LAT, LON, 48, 7);
+  const air = useOpenMeteoAirQuality(LAT, LON);
 
-  // === Фактические показатели «сейчас» ===
   const now = useMemo(() => {
-    // A) hourly — массив точек
     if (Array.isArray(hourly) && hourly.length) {
       type Pt = {
         time?: string; iso?: string; datetime?: string;
@@ -42,6 +49,7 @@ const WeatherTab: React.FC = () => {
         windMs?: number | null; windDirDeg?: number | null;
         rh?: number | null; pressureHpa?: number | null;
         pressureMslHpa?: number | null; visibilityM?: number | null;
+        uvIndex?: number | null;
       };
       const getMs = (p: Pt) => {
         const s = p.time || p.iso || p.datetime;
@@ -57,7 +65,6 @@ const WeatherTab: React.FC = () => {
       ).i;
 
       const p = hourly[idx] as Pt;
-
       const windMs = p.windMs == null ? 0 : +Number(p.windMs).toFixed(1);
       const windDirDeg = p.windDirDeg == null ? null : Number(p.windDirDeg);
       const humidity = p.rh == null ? 0 : Math.round(Number(p.rh));
@@ -66,91 +73,70 @@ const WeatherTab: React.FC = () => {
       const visibility = p.visibilityM == null ? 0 : Math.round(Number(p.visibilityM));
       const tempC = p.tC == null ? 0 : Math.round(Number(p.tC));
       const feelsC = p.apparentTC == null ? null : Math.round(Number(p.apparentTC));
+      const uvIndex = p.uvIndex == null ? 0 : +Number(p.uvIndex).toFixed(1);
 
-      return { windMs, windDirDeg, humidity, pressureMm, visibility, tempC, feelsC };
+      return { windMs, windDirDeg, humidity, pressureMm, visibility, tempC, feelsC, uvIndex };
     }
 
-    // B) hourly — объект с массивами
-    const H: any = hourly || {};
-    const pick = (arr?: (number | null)[]) => {
-      if (!H.time?.length || !arr?.length) return null;
-      const iso = H.nowIso ?? H.time[0];
-      const i = H.time.indexOf(iso);
-      if (i < 0) return arr[0] ?? null;
-      return arr[i] ?? null;
-    };
-
-    const windMs = pick(H.windMs);
-    const windDirDeg = pick(H.windDirDeg);
-    const humidity = pick(H.rh);
-    const pressureHpa = pick(H.pressureHpa) ?? pick(H.pressureMslHpa);
-    const visibility = pick(H.visibilityM);
-    const tempC = pick(H.tC);
-    const feelsC = pick(H.apparentTC);
-
-    return {
-      windMs: windMs == null ? 0 : +Number(windMs).toFixed(1),
-      windDirDeg: windDirDeg == null ? null : Number(windDirDeg),
-      humidity: humidity == null ? 0 : Math.round(Number(humidity)),
-      pressureMm: pressureHpa == null ? 0 : Math.round(hpaToMm(Number(pressureHpa))!),
-      visibility: visibility == null ? 0 : Math.round(Number(visibility)),
-      tempC: tempC == null ? 0 : Math.round(Number(tempC)),
-      feelsC: feelsC == null ? null : Math.round(Number(feelsC)),
-    };
+    return { windMs: 0, windDirDeg: null, humidity: 0, pressureMm: 0, visibility: 0, tempC: 0, feelsC: null, uvIndex: 0 };
   }, [hourly]);
 
-  // Восход/Закат (если useOpenMeteo добавляет их в daily)
   const rise = daily?.[0]?.sunrise ?? null;
-  const set  = daily?.[0]?.sunset  ?? null;
+  const set = daily?.[0]?.sunset ?? null;
 
-  // Видимость: км с 1 знаком после запятой, если >= 5000 м
-  const visibilityNum =
-    now.visibility >= 5000 ? +(now.visibility / 1000).toFixed(1) : now.visibility;
+  const visibilityNum = now.visibility >= 5000 ? +(now.visibility / 1000).toFixed(1) : now.visibility;
   const visibilityUnit = now.visibility >= 5000 ? " км" : " м";
 
+  const next12Hours = useMemo(() => {
+    const currentHourTs = Date.now();
+    return (hourly || [])
+      .filter((point) => new Date(point.time).getTime() >= currentHourTs)
+      .slice(0, 12);
+  }, [hourly]);
+
+  const rainMax = useMemo(() => {
+    return next12Hours.reduce((max, item) => Math.max(max, item.pop ?? 0), 0);
+  }, [next12Hours]);
+
+  const rainTotal = useMemo(() => {
+    return +next12Hours.reduce((sum, item) => sum + (item.precipMm ?? 0), 0).toFixed(1);
+  }, [next12Hours]);
+
   return (
-    <div className="w-full">
-      {/* Прогноз на неделю */}
-      <div className="w-full mt-2 mb-10 overflow-x-auto">
-        <div className="flex gap-6 min-w-max px-2">
-          {loading && (
-            <div className="flex justify-center items-center w-full h-32">
-              Загрузка прогноза…
-            </div>
-          )}
-          {error && !loading && (
-            <div className="flex justify-center items-center w-full h-32 text-red-400">
-              Не удалось получить данные погоды
-            </div>
-          )}
-          {!loading &&
-            !error &&
-            (daily ?? []).slice(0, 7).map((d: any, idx: number) => {
+    <div className="w-full h-full min-h-0 flex flex-col overflow-hidden">
+      <div className="w-full mt-1 mb-4 shrink-0">
+        {loading && (
+          <div className="flex justify-center items-center w-full h-32">Загрузка прогноза…</div>
+        )}
+        {error && !loading && (
+          <div className="flex justify-center items-center w-full h-32 text-red-400">
+            Не удалось получить данные погоды
+          </div>
+        )}
+        {!loading && !error && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-3 w-full">
+            {(daily ?? []).slice(0, 7).map((d: any, idx: number) => {
               const icon = `/images/${iconByWmo(d.wcode)}`;
               const tMax = d.tMaxC == null ? 0 : Math.round(d.tMaxC);
               const tMin = d.tMinC == null ? 0 : Math.round(d.tMinC);
               return (
-                <div key={d.date} className="flex-shrink-0" style={{ minWidth: 140 }}>
-                  <SmallCard
-                    dayTitle={getDayTitle(d.date, idx)}
-                    img={icon}
-                    max={tMax}
-                    min={tMin}
-                    temp="C"
-                  />
-                </div>
+                <SmallCard
+                  key={d.date}
+                  dayTitle={getDayTitle(d.date, idx)}
+                  img={icon}
+                  max={tMax}
+                  min={tMin}
+                  temp="C"
+                />
               );
             })}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* Погодные показатели */}
-      <div className="my-10">
-        <h3 className="text-2xl font-bold mb-5">Погодные показатели</h3>
-
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Левая половина — карточки: Ощущается как + Восход/Закат */}
-          <div className="flex-1 grid grid-cols-1 gap-5 auto-rows-[1fr]">
+      <div className="mt-2 min-h-0 flex-1 overflow-auto pr-1">
+        <div className="grid grid-cols-12 gap-4 auto-rows-[minmax(180px,auto)]">
+          <div className="col-span-12 xl:col-span-3 grid grid-cols-1 gap-4 auto-rows-[1fr]">
             <LargeCard className="h-full" title="Ощущается как" num={(now.feelsC ?? now.tempC ?? 0)} desc="°C" />
             <div className="h-full">
               {rise || set ? (
@@ -163,8 +149,7 @@ const WeatherTab: React.FC = () => {
             </div>
           </div>
 
-          {/* Правая половина — метрики (равная высота строк) */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-5 auto-rows-[1fr]">
+          <div className="col-span-12 xl:col-span-5 grid grid-cols-1 lg:grid-cols-2 gap-4 auto-rows-[1fr]">
             <LargeCard className="h-full" title="Ветер" num={now.windMs ?? 0} desc="м/с">
               <div className="flex justify-between space-x-5 items-center">
                 <div className="bg-gray-500 rounded-full w-[30px] h-[30px] flex justify-center items-center">
@@ -187,8 +172,67 @@ const WeatherTab: React.FC = () => {
             </LargeCard>
 
             <LargeCard className="h-full" title="Видимость" num={visibilityNum ?? 0} desc={visibilityUnit} />
-
             <LargeCard className="h-full" title="Давление" num={now.pressureMm ?? 0} desc=" мм" />
+          </div>
+
+          <div className="col-span-12 xl:col-span-4 grid grid-cols-1 gap-4 auto-rows-[1fr]">
+            <div className="bg-[#22243c] rounded-xl py-5 px-6 h-full flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-gray-250 text-sm">Осадки ближайшие 12 часов</div>
+                  <div className="text-gray-400 text-xs mt-1">Новый погодный блок</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-gray-150">{rainMax}%</div>
+                  <div className="text-xs text-gray-400">макс. вероятность</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-6 gap-2 mt-2">
+                {next12Hours.slice(0, 6).map((point) => (
+                  <div key={point.time} className="rounded-lg bg-[#1b1d31] p-2 text-center">
+                    <div className="text-[11px] text-gray-400">
+                      {new Date(point.time).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                    <div className="mt-2 text-sm font-semibold text-gray-150">{point.pop ?? 0}%</div>
+                    <div className="text-[11px] text-gray-400 mt-1">{(point.precipMm ?? 0).toFixed(1)} мм</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-auto pt-4 text-sm text-gray-300">Суммарно за 12 часов: <span className="font-semibold">{rainTotal} мм</span></div>
+            </div>
+
+            <div className="bg-[#22243c] rounded-xl py-5 px-6 h-full flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-gray-250 text-sm">УФ и качество воздуха</div>
+                  <div className="text-gray-400 text-xs mt-1">Новый погодный блок</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-gray-150">{now.uvIndex}</div>
+                  <div className="text-xs text-gray-400">УФ-индекс</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg bg-[#1b1d31] p-3">
+                  <div className="text-xs text-gray-400">AQI</div>
+                  <div className="text-xl font-semibold text-gray-150 mt-2">{air.current?.europeanAqi ?? "—"}</div>
+                  <div className="text-xs text-gray-300 mt-1">{aqiLabel(air.current?.europeanAqi)}</div>
+                </div>
+                <div className="rounded-lg bg-[#1b1d31] p-3">
+                  <div className="text-xs text-gray-400">PM2.5</div>
+                  <div className="text-xl font-semibold text-gray-150 mt-2">{air.current?.pm25 ?? "—"}</div>
+                  <div className="text-xs text-gray-300 mt-1">мкг/м³</div>
+                </div>
+                <div className="rounded-lg bg-[#1b1d31] p-3">
+                  <div className="text-xs text-gray-400">PM10</div>
+                  <div className="text-xl font-semibold text-gray-150 mt-2">{air.current?.pm10 ?? "—"}</div>
+                  <div className="text-xs text-gray-300 mt-1">мкг/м³</div>
+                </div>
+              </div>
+              <div className="mt-auto pt-4 text-sm text-gray-300">
+                {air.loading ? "Обновляю данные по воздуху…" : air.error ? "Данные по воздуху недоступны" : "Показатели полезны для прогулок и проветривания."}
+              </div>
+            </div>
           </div>
         </div>
       </div>
